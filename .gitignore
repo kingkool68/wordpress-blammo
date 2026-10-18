@@ -1,0 +1,25 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Build output (compiled by wp-scripts locally and in CI)
+/build/
+
+# Local tooling caches (Sprig mu-plugin for wp-env, etc.)
+/.cache/
+
+# Machine-specific config
+/.env.local
+
+# Agent working state
+/.claude/worktrees/
+/.claude/settings.local.json
+/.agents/prompts/.pending/
+
+# Test artifacts
+/artifacts/
+/test-results/
+/playwright-report/
+/.phpunit.result.cache
+
+.DS_Store
