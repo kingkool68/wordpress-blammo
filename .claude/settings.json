@@ -35,7 +35,7 @@
 			"Bash(bin/wp-local rewrite list:*)",
 			"Bash(bin/wp-local rewrite flush:*)",
 			"Bash(bin/wp-local cache flush:*)",
-			"Bash(bin/wp-local db export:*)",
+			"Bash(bin/wp-local db export ~/blammo-backups/:*)",
 			"Bash(bin/wp-local mcp-adapter list:*)",
 			"Bash(python3 .claude/skills/ship-pr/build-prompt-artifact.py:*)",
 			"Bash(git status:*)",
@@ -71,8 +71,16 @@
 		"ask": [
 			"Edit(/.claude/hooks/**)",
 			"Write(/.claude/hooks/**)",
+			"Edit(/.claude/skills/**/*.py)",
+			"Write(/.claude/skills/**/*.py)",
 			"Edit(/.claude/settings.json)",
 			"Write(/.claude/settings.json)",
+			"Edit(/.claude/settings.local.json)",
+			"Write(/.claude/settings.local.json)",
+			"Edit(**/.claude/hooks/**)",
+			"Write(**/.claude/hooks/**)",
+			"Edit(**/.claude/settings*.json)",
+			"Write(**/.claude/settings*.json)",
 			"Bash(bin/wp-local mcp-adapter serve:*)"
 		],
 		"deny": [

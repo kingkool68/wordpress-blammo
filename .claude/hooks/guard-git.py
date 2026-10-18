@@ -2,17 +2,17 @@
 """PreToolUse(Bash) hook: block git/gh operations agents must never perform.
 
 Defence in depth only. The real control is GitHub branch protection on `main`
-(docs/agents/workflow.md). Blocks (exit 2, reason on stderr):
-  - git push to main/master (explicit, HEAD/@ while on main, or implicit while on main)
-  - git push --mirror/--all/--delete/-d/--prune/--force/-f, +refspec, :refspec
-  - git push with shell expansion ($, backticks, braces) in its arguments
-  - git commit/push in a command that also switches or checks out a branch
-  - git commit/push when the branch can't be determined (fails closed)
-  - git commit while on main/master
-  - git add -f/--force (could stage gitignored secrets)
-  - git -c alias.*; git hidden in xargs
-  - gh pr merge (any flags), gh api calls touching merges/refs/protection/rulesets
-bash/sh/zsh -c and eval payloads are analysed recursively. Unparseable input blocks.
+(docs/agents/workflow.md). Commands that don't mention git/gh pass immediately.
+Blocks (exit 2, reason on stderr):
+  - git push to main/master: explicit (any ref path ending in main/master), HEAD/@ while on
+    main, or implicit while on main
+  - git push --mirror/--all/--delete/-d/--prune/--force/-f, +refspec, :refspec, shell expansion
+  - git commit/push together with a branch switch; git commit/push when the branch is unknown
+  - git commit on main/master (honours cd/pushd, -C, --git-dir, GIT_DIR)
+  - git add -f; git -c alias.*/remote.*/push.*; git config alias.*; git update-ref main
+  - git/gh inside xargs, interpreter one-liners, or piped into a shell
+  - gh pr merge; mutating gh api calls on merges/refs/protection/rulesets; graphql merges
+bash/sh -c, eval and backtick payloads are analysed recursively. Unparseable git/gh commands block.
 """
 import json
 import os
@@ -22,7 +22,11 @@ import subprocess
 import sys
 
 PROTECTED = {"main", "master"}
-OPERATORS = {"&&", "||", ";", "|", "&", "(", ")", "\n", ";;", "|&"}
+PROTECTED_REF = re.compile(r"(^|/)(main|master)$")
+SEPARATORS = set("();|&\n")
+TRANSPARENT = {"env", "command", "builtin", "nohup", "time", "exec", "nice", "sudo",
+               "then", "do", "else", "elif", "if", "while", "until", "!", "{", "}"}
+MENTIONS_GIT = re.compile(r"(^|[\s/;&|(`\"'])(git|gh)(\s|$)")
 
 
 def block(reason):
@@ -30,35 +34,50 @@ def block(reason):
     sys.exit(2)
 
 
-def tokenize(command):
-    """Shell-ish tokenization: operators split commands only outside quotes."""
-    lexer = shlex.shlex(command, posix=True, punctuation_chars="();<>|&\n")
-    lexer.whitespace = " \t\r"
-    lexer.whitespace_split = True
-    lexer.commenters = ""
-    return list(lexer)
+def strip_heredocs(command):
+    """Drop heredoc bodies: they are data (commit messages, file contents), not commands."""
+    lines, out, terminator = command.split("\n"), [], None
+    for line in lines:
+        if terminator is not None:
+            if line.strip() == terminator:
+                terminator = None
+                out.append(line.replace(line.strip(), ""))
+            continue
+        out.append(line)
+        m = re.search(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1", line)
+        if m:
+            terminator = m.group(2)
+    return "\n".join(out)
 
 
 def segments_of(command):
+    lexer = shlex.shlex(command, posix=True, punctuation_chars="();<>|&\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    lexer.commenters = "#"
     try:
-        tokens = tokenize(command)
+        tokens = list(lexer)
     except ValueError:
-        block("could not parse command (unbalanced quotes)")
-    segment = []
+        block("could not parse a git/gh command (unbalanced quotes)")
+    segment, prev_op = [], ""
     for tok in tokens:
-        if tok in OPERATORS or set(tok) <= set("();|&\n"):
+        if set(tok) <= SEPARATORS:
             if segment:
-                yield segment
-            segment = []
+                yield segment, prev_op
+            segment, prev_op = [], tok
         else:
             segment.append(tok)
     if segment:
-        yield segment
+        yield segment, prev_op
 
 
 def resolve(path, base):
     path = os.path.expanduser(os.path.expandvars(path))
     return path if os.path.isabs(path) else os.path.normpath(os.path.join(base, path))
+
+
+def repo_of_git_dir(path, base):
+    return os.path.dirname(resolve(path, base).rstrip("/"))
 
 
 def current_branch(directory):
@@ -71,54 +90,102 @@ def current_branch(directory):
         return ""
 
 
-def is_cmd(token, name):
-    return os.path.basename(token) == name
+def base(token):
+    return os.path.basename(token)
+
+
+def check_gh(seg):
+    args = seg[1:]
+    # gh [global flags] pr [flags] merge
+    positional = [a for i, a in enumerate(args) if not a.startswith("-") and not (i > 0 and args[i - 1] in ("-R", "--repo"))]
+    if positional[:2] == ["pr", "merge"]:
+        block("agents never merge PRs; the human merges.")
+    if positional[:1] == ["api"]:
+        joined = " ".join(args)
+        method = "GET"
+        for i, a in enumerate(args):
+            if a in ("-X", "--method") and i + 1 < len(args):
+                method = args[i + 1].upper()
+            elif a.startswith("--method="):
+                method = a.split("=", 1)[1].upper()
+        writes = method != "GET" or any(a in ("-f", "-F", "--field", "--raw-field", "--input") for a in args)
+        if "graphql" in positional and re.search(r"(?i)merge|updateRef|deleteRef|branchProtection", joined):
+            block("gh api graphql mutations touching merges/refs/protection are not allowed.")
+        if writes and re.search(r"/merge\b|/merges\b|/git/refs|/protection|/rulesets", joined):
+            block("mutating gh api calls on merges/refs/protection are not allowed.")
 
 
 def analyse(command, cwd, depth=0):
     if depth > 3:
         block("command nesting too deep to analyse")
+    command = strip_heredocs(command)
+    if not MENTIONS_GIT.search(command):
+        return
+    # Command substitutions run even inside double quotes; analyse their contents separately.
+    for inner in re.findall(r"`([^`]*)`", command) + re.findall(r"\$\(([^()]*)\)", command):
+        analyse(inner, cwd, depth + 1)
     cd_dir = cwd
     git_ops = []  # (subcommand, args, directory)
-    for seg in segments_of(command):
-        # Strip leading env assignments and transparent prefixes.
-        while seg and (re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", seg[0]) or seg[0] in ("env", "command", "builtin", "nohup", "time", "{", "}")):
-            seg = seg[1:]
+    for seg, prev_op in segments_of(command):
+        git_dir_env = None
+        while seg:
+            if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", seg[0]):
+                if seg[0].startswith("GIT_DIR="):
+                    git_dir_env = repo_of_git_dir(seg[0].split("=", 1)[1], cd_dir)
+                seg = seg[1:]
+            elif seg[0] in TRANSPARENT:
+                seg = seg[1:]
+            elif seg[0] == "timeout":
+                seg = seg[1:]
+                while seg and (seg[0].startswith("-") or re.fullmatch(r"\d+(\.\d+)?[smhd]?", seg[0])):
+                    seg = seg[1:]
+            else:
+                break
         if not seg:
             continue
-        head = seg[0]
+        head = base(seg[0])
+        rest_text = " ".join(seg[1:])
 
-        if head == "cd":
+        if head in ("cd", "pushd"):
             cd_dir = resolve(seg[1], cd_dir) if len(seg) > 1 else os.path.expanduser("~")
             continue
-        if head in ("bash", "sh", "zsh") and "-c" in seg:
-            idx = seg.index("-c")
-            if idx + 1 < len(seg):
-                analyse(seg[idx + 1], cd_dir, depth + 1)
+        if head in ("bash", "sh", "zsh", "dash", "ksh"):
+            flags = [i for i, t in enumerate(seg) if re.fullmatch(r"-[a-z]*c[a-z]*", t)]
+            if flags:
+                payload = [t for t in seg[flags[0] + 1:] if t != "--"]
+                if payload:
+                    analyse(payload[0], cd_dir, depth + 1)
+            elif prev_op in ("|", "|&"):
+                block("piping commands into a shell is not allowed when git/gh is involved.")
             continue
         if head == "eval":
-            analyse(" ".join(seg[1:]), cd_dir, depth + 1)
+            analyse(rest_text, cd_dir, depth + 1)
             continue
-        if head == "xargs" and any(is_cmd(t, "git") or is_cmd(t, "gh") for t in seg):
+        if head == "xargs" and any(base(t) in ("git", "gh") for t in seg):
             block("git/gh via xargs is not allowed; run it directly.")
+        if re.fullmatch(r"python[0-9.]*|perl|ruby|node|php|osascript", head) and re.search(r"\bgit\b|\bgh\b", rest_text):
+            block("git/gh from an interpreter one-liner is not allowed; run it directly.")
 
-        if is_cmd(head, "gh"):
-            rest = " ".join(seg[1:])
-            if re.search(r"\bpr\s+(.*\s)?merge\b", rest):
-                block("agents never merge PRs; the human merges.")
-            if "api" in seg and re.search(r"/merge\b|/git/refs|/protection|/rulesets|/merges\b", rest):
-                block("gh api calls that merge PRs or change refs/protection are not allowed.")
+        if head == "gh":
+            check_gh(seg)
+            continue
+        if head != "git":
             continue
 
-        if not is_cmd(head, "git"):
-            continue
-        i, directory = 1, cd_dir
+        i, directory = 1, git_dir_env or cd_dir
         while i < len(seg) and seg[i].startswith("-"):
-            if seg[i] in ("-C", "-c", "--git-dir", "--work-tree") and i + 1 < len(seg):
-                if seg[i] == "-C":
-                    directory = resolve(seg[i + 1], directory)
-                if seg[i] == "-c" and seg[i + 1].lower().startswith("alias."):
-                    block("git -c alias.* is not allowed.")
+            opt = seg[i]
+            if opt.startswith("--git-dir="):
+                directory = repo_of_git_dir(opt.split("=", 1)[1], directory)
+                i += 1
+            elif opt in ("-C", "-c", "--git-dir", "--work-tree", "--namespace") and i + 1 < len(seg):
+                val = seg[i + 1]
+                if opt == "-C":
+                    directory = resolve(val, directory)
+                elif opt == "--git-dir":
+                    directory = repo_of_git_dir(val, directory)
+                elif opt == "-c" and re.match(r"(?i)(alias|remote|push|url|branch)\.", val):
+                    block(f"git -c {val.split('=')[0]} is not allowed.")
                 i += 2
             else:
                 i += 1
@@ -130,32 +197,38 @@ def analyse(command, cwd, depth=0):
         block("don't switch branches and commit/push in one command; run them separately.")
 
     for sub, args, directory in git_ops:
+        if sub == "config" and any(re.match(r"(?i)(alias|remote\.[^.]+\.push|push)\.?", a) for a in args):
+            block("changing git aliases or push config is not allowed.")
+        if sub == "update-ref" and any(PROTECTED_REF.search(a) for a in args):
+            block("updating main/master refs directly is not allowed.")
         if sub == "add" and any(a in ("-f", "--force") or re.fullmatch(r"-[a-zA-Z]*f[a-zA-Z]*", a) for a in args):
             block("git add --force could stage gitignored secrets.")
 
-        if sub in ("commit", "push"):
-            branch = current_branch(directory)
-            if not branch:
-                block(f"could not determine the current branch in {directory}; refusing git {sub}.")
-            if sub == "commit" and branch in PROTECTED:
+        if sub not in ("commit", "push"):
+            continue
+        branch = current_branch(directory)
+        if not branch:
+            block(f"could not determine the current branch in {directory}; refusing git {sub}. Use a literal path.")
+        if sub == "commit":
+            if branch in PROTECTED:
                 block("committing on main/master is not allowed; create a worktree branch (docs/agents/workflow.md).")
+            continue
 
-        if sub == "push":
-            if any(re.search(r"[$`{}]", a) for a in args):
-                block("shell expansion in git push arguments; use literal branch names.")
-            for a in args:
-                if a in ("--mirror", "--all", "--delete", "-d", "--prune", "--force", "-f") \
-                        or (re.fullmatch(r"-[a-zA-Z]+", a) and ("f" in a or "d" in a)):
-                    block(f"git push {a} is not allowed (only plain pushes and --force-with-lease).")
-            refspecs = [a for a in args if not a.startswith("-")][1:]  # first positional is the remote
-            for ref in refspecs:
-                if ref.startswith("+") or ref.startswith(":"):
-                    block("force (+ref) and delete (:ref) refspecs are not allowed.")
-                dest = ref.split(":")[-1].removeprefix("refs/heads/")
-                if dest in PROTECTED or (dest in ("HEAD", "@") and branch in PROTECTED):
-                    block(f"pushing to '{dest}' is not allowed; open a PR from a feature branch.")
-            if not refspecs and branch in PROTECTED:
-                block("pushing while on main/master is not allowed; work in a feature branch worktree.")
+        if any(re.search(r"[$`{}]", a) for a in args):
+            block("shell expansion in git push arguments; use literal branch names.")
+        for a in args:
+            if a in ("--mirror", "--all", "--delete", "-d", "--prune", "--force", "-f", "--tags") \
+                    or (re.fullmatch(r"-[a-zA-Z]+", a) and ("f" in a or "d" in a)):
+                block(f"git push {a} is not allowed (only plain pushes and --force-with-lease).")
+        refspecs = [a for a in args if not a.startswith("-")][1:]  # first positional is the remote
+        for ref in refspecs:
+            if ref.startswith(("+", ":")):
+                block("force (+ref) and delete (:ref) refspecs are not allowed.")
+            dest = ref.split(":")[-1]
+            if PROTECTED_REF.search(dest) or (dest in ("HEAD", "@") and branch in PROTECTED):
+                block(f"pushing to '{dest}' is not allowed; open a PR from a feature branch.")
+        if not refspecs and branch in PROTECTED:
+            block("pushing while on main/master is not allowed; work in a feature branch worktree.")
 
 
 try:

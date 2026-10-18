@@ -135,4 +135,5 @@ Mu-plugins load before the theme, so the theme's Sprig filters are registered in
 
 ## Deploy
 - `deploy.yml` builds on pushes to `main` and commits the compiled theme to an orphan `build/main` branch, with dev files excluded (`.gitignore-build`). Production installs from `build/main`.
+- `src/blocks/**/*.php` and `*.twig` are **runtime files** and must ship. Exclude only the block JS and SCSS sources, never all of `src/`.
 - **The main checkout that blammo.local renders has no `build/`** until you run `npm run build` after pulling `main`.

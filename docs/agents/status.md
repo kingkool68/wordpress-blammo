@@ -22,9 +22,9 @@ Last updated: 2026-10-18 by `chore/agent-infrastructure`
    - a `styleguide_path` sanitizing `request` filter
    - `bin/install-mu-plugins` (Sprig + wp-styleguide), which verifies `sprig/vendor/twig`
    - all tool configs exclude `.claude/worktrees/`
-2. `chore/testing-ci`: wp-env, PHPUnit, Jest, Playwright + axe, GitHub Actions `ci.yml` and `deploy.yml`
+2. `chore/testing-ci`: wp-env, PHPUnit, Jest, Playwright + axe, GitHub Actions `ci.yml` and `deploy.yml`. Deploy must ship `src/blocks/**/*.php` and `*.twig`; they're runtime files.
 3. `feat/mcp-adapter`:
-   - `bin/wp-local` (refuses destructive subcommands unless `WP_LOCAL_ALLOW_DESTRUCTIVE=1`), `.env.local.example`, `.mcp.json`
+   - `bin/wp-local` (refuses destructive subcommands and the `--exec`/`--require` global flags unless `WP_LOCAL_ALLOW_DESTRUCTIVE=1`, and limits `db export` to `~/blammo-backups/`), `.env.local.example`, `.mcp.json`
    - `Blammo_Abilities` + tests (safety rules in local-environment.md)
    - local site setup: the mcp-adapter plugin, a `claude` user with a random password, theme activation
 4. GitHub issues for deferred starter classes: CDN, Slack, Share_Tools, Redirects, Breadcrumbs, Post_Type_Archives

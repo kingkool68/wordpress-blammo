@@ -31,6 +31,20 @@ The blammo.local socket is ~/Library/Application Support/Local/run/qQNo-k_Jg/mys
 Sprig can be added in the mu-plugins directory
 ~~~~
 
+## Prompt 4
+
+~~~~text
+The styleguide is a plugin at https://github.com/kingkool68/wp-styleguide
+~~~~
+
+## Prompt 5
+
+~~~~text
+open a PR on kingkool68/wp-styleguide to fix
+~~~~
+
+(Prompt 5 produced [kingkool68/wp-styleguide#1](https://github.com/kingkool68/wp-styleguide/pull/1), which fixes the path traversal, redirect, rewrite-anchor and title-injection bugs found while documenting the plugin.)
+
 ## Clarifications
 
 | Question | Answer |

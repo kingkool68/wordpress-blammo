@@ -30,7 +30,7 @@ Bare `wp` isn't on PATH. Local's bundled wp-cli uses `#!/usr/bin/env php`, which
 
 ```bash
 bin/wp-local option get siteurl
-bin/wp-local db export ~/blammo-backup-$(date +%F-%H%M).sql   # before anything destructive
+bin/wp-local db export ~/blammo-backups/blammo-$(date +%F-%H%M).sql   # before anything destructive
 ```
 
 ## MCP (WordPress MCP Adapter)
@@ -49,7 +49,10 @@ bin/wp-local db export ~/blammo-backup-$(date +%F-%H%M).sql   # before anything 
   - `permission_callback` re-checks **both** `current_user_can( 'manage_options' )` and `wp_get_environment_type() === 'local'` at execution time, not only at registration.
 - **The `claude` user** gets a long random password that nobody keeps, and **no application passwords**.
 - **The adapter also exposes an HTTP transport** (`/wp-json/mcp/...`). Never expose blammo.local (Local "Live Links", LAN sharing) while the adapter is active.
-- **Approval:** `bin/wp-local` wrapper commands that write or run code (`eval`, `db query`, `db import`, `search-replace`, plugin installs) and piping JSON-RPC into `mcp-adapter serve` are **not** pre-approved; the human approves each one. The wrapper refuses `eval`, `eval-file`, `shell`, `db drop|reset|query|import` and `site empty` unless `WP_LOCAL_ALLOW_DESTRUCTIVE=1` is set.
+- **Approval:** `bin/wp-local` wrapper commands that write or run code (`eval`, `db query`, `db import`, `search-replace`, plugin installs) and piping JSON-RPC into `mcp-adapter serve` are **not** pre-approved; the human approves each one. The wrapper refuses these unless `WP_LOCAL_ALLOW_DESTRUCTIVE=1` is set:
+  - the subcommands `eval`, `eval-file`, `shell`, `db drop|reset|query|import|cli`, `site empty`;
+  - the WP-CLI global flags `--exec`, `--require`, `--path`, `--ssh`, `--http`, `--context`. These run arbitrary PHP or retarget the command, even after a harmless subcommand like `option get`.
+- **`db export`** writes only into `~/blammo-backups/`; the wrapper rejects any other path.
 
 ## wp-env
 - `npm run env:start` runs `bin/install-mu-plugins .cache/mu-plugins`, then `wp-env start`. `.wp-env.json` maps `.cache/mu-plugins` to `wp-content/mu-plugins`.

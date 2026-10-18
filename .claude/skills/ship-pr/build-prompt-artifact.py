@@ -2,13 +2,15 @@
 """Build .agents/prompts/YYYY-MM-DD-<slug>.md from prompts captured by .claude/hooks/capture-prompt.sh.
 
 Usage:
-  build-prompt-artifact.py <slug> [--session ID] [--rebuild]
+  build-prompt-artifact.py <slug> [--session ID] [--rebuild [--force]]
   build-prompt-artifact.py --scan <file>        # re-run the secret scan after redacting
 
-Session selection (no --session): sessions with unshipped prompts whose captured cwd is inside this
-worktree; else the only session with unshipped prompts; else it refuses and lists candidates.
+Session selection (no --session): the single session with unshipped prompts whose captured cwd is
+inside THIS worktree. Otherwise it refuses and lists candidates; re-run with --session.
 After building, a {"shipped": slug} marker is appended so the next PR starts fresh. --rebuild
-regenerates the artifact for the last shipped slug (e.g. after a review round) without a new marker.
+regenerates the artifact for the last shipped slug, including prompts captured since (follow-ups
+during review), and moves the marker. It keeps the "## Clarifications" section, and refuses to
+discard manual [REDACTED: ...] edits unless --force is given (re-apply them afterwards).
 
 Exit codes: 0 ok, 1 usage/selection error, 3 possible secrets found (redact, then --scan).
 The repo is PUBLIC: home paths are redacted automatically; anything flagged must be replaced
@@ -28,8 +30,12 @@ SECRET_PATTERNS = {
     "aws key": r"AKIA[0-9A-Z]{16}",
     "slack token": r"xox[abpors]-[A-Za-z0-9-]{10,}",
     "private key": r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
-    "wp application password": r"\b[A-Za-z0-9]{4}( [A-Za-z0-9]{4}){5}\b",
-    "password assignment": r"(?i)\b(password|passwd|secret|token|api[_-]?key)\b\s*[:=]\s*\S{6,}",
+    "wp application password": r"\b(?=(?:[A-Za-z0-9]{4} ){5}[A-Za-z0-9]{4}\b)(?=[^\n]{0,29}\d)(?=[^\n]{0,29}[A-Z])[A-Za-z0-9]{4}( [A-Za-z0-9]{4}){5}\b",
+    "stripe key": r"\b[sr]k_(live|test)_[A-Za-z0-9]{16,}",
+    "google api key": r"\bAIza[0-9A-Za-z_-]{35}",
+    "jwt": r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.",
+    "credentials in url": r"://[^/\s:@]+:[^@\s/]+@",
+    "password assignment": r"(?i)\b(password|passwd|pwd|secret|token|api[_-]?key)\b\s*(is\s+|[:=]\s*)\S{6,}",
     "email address": r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
 }
 
@@ -42,12 +48,14 @@ def scan(path):
     hits = []
     with open(path, encoding="utf-8") as fh:
         for n, line in enumerate(fh, 1):
+            text = re.sub(r"\[REDACTED[^\]]*\]", "", line).replace("noreply@anthropic.com", "")
             for kind, pattern in SECRET_PATTERNS.items():
-                if re.search(pattern, line) and "[REDACTED" not in line and "noreply@anthropic.com" not in line:
+                if re.search(pattern, text):
                     hits.append(f"  line {n}: possible {kind}: {line.strip()[:100]}")
     if hits:
-        print(f"Possible secrets in {path}. Replace each with [REDACTED: <kind>] (or confirm it's safe "
-              f"to publish), then run: {sys.argv[0]} --scan {path}", file=sys.stderr)
+        print(f"Possible secrets in {path}. Replace each real secret with [REDACTED: <kind>], then run: "
+              f"{sys.argv[0]} --scan {path}\nFalse positives (ordinary text) must NOT be redacted: leave them, "
+              f"and note 'secret scan false positive: line N' in the PR body.", file=sys.stderr)
         print("\n".join(hits), file=sys.stderr)
         return 3
     return 0
@@ -81,6 +89,7 @@ def main():
     parser.add_argument("slug", nargs="?")
     parser.add_argument("--session")
     parser.add_argument("--rebuild", action="store_true")
+    parser.add_argument("--force", action="store_true")
     parser.add_argument("--scan")
     opts = parser.parse_args()
 
@@ -99,9 +108,18 @@ def main():
         blocks, markers, current = load_blocks(path)
         if opts.rebuild:
             if markers and markers[-1] == opts.slug:
-                return blocks[-1]
+                return blocks[-1] + current
             return []
         return current
+
+    def within(path, root):
+        path, root = os.path.realpath(path), os.path.realpath(root)
+        return path == root or path.startswith(root + os.sep)
+
+    def is_local(entries):
+        nested = os.path.join(toplevel, ".claude", "worktrees")
+        return any(within(e.get("cwd") or "/nonexistent", toplevel)
+                   and not within(e.get("cwd") or "/nonexistent", nested) for e in entries)
 
     if opts.session:
         files = [os.path.join(pending_dir, opts.session + ".jsonl")]
@@ -114,11 +132,17 @@ def main():
             if os.path.isdir(pending_dir) else []
         )
     candidates = [(f, e) for f in files if (e := entries_for(f))]
-    if len(candidates) > 1:
-        local = [(f, e) for f, e in candidates
-                 if any((x.get("cwd") or "").startswith(toplevel) for x in e)]
+    if not opts.session:
+        local = [(f, e) for f, e in candidates if is_local(e)]
         if len(local) == 1:
             candidates = local
+        elif candidates:
+            print("Can't tell which session's prompts belong to this worktree. Re-run with --session <id>, "
+                  "choosing the one whose prompts match your conversation:", file=sys.stderr)
+            for f, e in candidates:
+                print(f"  {os.path.basename(f)[:-6]}  last {e[-1].get('ts')}: {e[-1]['prompt'][:80]!r}",
+                      file=sys.stderr)
+            return 1
     if not candidates:
         print("No captured prompts to ship. Write the artifact by hand with the verbatim prompt "
               "(see .agents/prompts/README.md).", file=sys.stderr)
@@ -141,6 +165,15 @@ def main():
     if os.path.exists(out) and not opts.rebuild:
         print(f"{out} already exists; use --rebuild to regenerate it.", file=sys.stderr)
         return 1
+    tail = ""
+    if opts.rebuild and os.path.exists(out):
+        existing = open(out, encoding="utf-8").read()
+        before, sep, after = existing.partition("\n## Clarifications")
+        tail = sep + after if sep else ""
+        if "[REDACTED" in before and not opts.force:
+            print(f"{out} contains manual redactions that a rebuild would discard. Re-run with --force and "
+                  f"re-apply them, then --scan.", file=sys.stderr)
+            return 1
 
     home = os.path.expanduser("~")
     parts = [f"---\ndate: {date}\nbranch: {branch}\nsession_id: {session_id}\n---\n\n",
@@ -150,12 +183,26 @@ def main():
         fence = fence_for(text)
         parts.append(f"\n## Prompt {n} ({entry.get('ts', 'unknown time')})\n\n{fence}text\n{text}\n{fence}\n")
     with open(out, "w", encoding="utf-8") as fh:
-        fh.write("".join(parts))
+        fh.write("".join(parts) + tail)
 
-    if not opts.rebuild:
+    ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    marker = json.dumps({"shipped": opts.slug, "ts": ts}) + "\n"
+    if opts.rebuild:
+        # Move the last marker to the end so follow-up prompts count as shipped with this slug.
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.readlines()
+        for i in range(len(lines) - 1, -1, -1):
+            try:
+                if json.loads(lines[i]).get("shipped") == opts.slug:
+                    del lines[i]
+                    break
+            except ValueError:
+                continue
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.writelines(lines + [marker])
+    else:
         with open(path, "a", encoding="utf-8") as fh:
-            ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            fh.write(json.dumps({"shipped": opts.slug, "ts": ts}) + "\n")
+            fh.write(marker)
     print(out)
     return scan(out)
 

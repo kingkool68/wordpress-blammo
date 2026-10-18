@@ -1,6 +1,6 @@
 # Agent workflow
 
-Every task follows this loop. The `ship-pr` skill automates steps 6–10.
+Every task follows this loop. The `ship-pr` skill automates steps 6–10 (it updates the docs before the reviews, so reviewers check them).
 
 ## Prerequisites (one-time, set up by the human)
 - **GitHub branch protection or a ruleset on `main`:** require a PR, block force pushes, and block deletion. This is the real control. `.claude/hooks/guard-git.py` and the permission rules in `.claude/settings.json` are defence in depth, and can't catch every shell trick.

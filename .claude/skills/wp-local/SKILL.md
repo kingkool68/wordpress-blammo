@@ -23,7 +23,7 @@ Full background is in `docs/agents/local-environment.md`.
 
 ## Safety rules
 1. **Read before write.** Inspect the current state first (`bin/wp-local option get …`, `post list`, etc.).
-2. **Back up before anything destructive:** `bin/wp-local db export ~/blammo-backup-$(date +%F-%H%M).sql`. Destructive means deletes, `search-replace`, plugin or theme switches, user changes, `db import`, and bulk updates.
+2. **Back up before anything destructive:** `bin/wp-local db export ~/blammo-backups/blammo-$(date +%F-%H%M).sql`. Destructive means deletes, `search-replace`, plugin or theme switches, user changes, `db import`, and bulk updates.
 3. Never change `siteurl`/`home`, delete users, or change the `claude` user's role without the user's explicit OK.
 4. Name agent-created content clearly (title prefix `[agent]`), and say what you created so the user can clean it up.
 5. Never put credentials into files. STDIO MCP needs none.
