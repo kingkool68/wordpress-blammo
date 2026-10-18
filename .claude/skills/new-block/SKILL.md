@@ -11,9 +11,9 @@ Read `docs/agents/blocks.md` and `docs/agents/conventions.md` first. Then, given
 2. **Create `src/blocks/<slug>/`:**
    - `block.json`:
      - `apiVersion: 3`, `name: "blammo/<slug>"`, `title`, `category: "blammo"`, `description`;
-     - typed `attributes` (with `default` values), `supports`;
+     - typed `attributes` (with `default` values), `supports` (never `supports.layout` or color element supports: the theme removes their render filters);
      - `editorScript: "file:./index.js"`, `style: "file:./style-index.css"`, and `viewScript` only if needed.
-   - `index.js`: `registerBlockType( metadata.name, { edit: Edit, save: () => null } )`, importing `./style.scss`. Don't declare `supports.layout` or color element supports.
+   - `index.js`: `registerBlockType( metadata.name, { edit: Edit, save: () => null } )`, importing `./style.scss`.
    - `edit.js`:
      - `useBlockProps`, plus `InspectorControls` with labelled controls;
      - a preview via `@wordpress/server-side-render` (`block="blammo/<slug>"`) unless an editable `RichText` UI is required.

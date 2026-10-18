@@ -34,4 +34,4 @@ Last updated: 2026-10-18 by `chore/agent-infrastructure`
 - `bin/wp-local`, `.env.local.example` and `.mcp.json` don't exist yet. Don't modify blammo.local until `feat/mcp-adapter` is merged.
 - `.claude/hooks/lint-php.sh` falls back to `php -l` only until `vendor/bin/phpcs` exists.
 - **GitHub branch protection on `main` isn't confirmed yet.** It's a human prerequisite (workflow.md).
-- **wp-styleguide upstream:** path-traversal, redirect, rewrite-anchor and title-injection fixes are in [kingkool68/wp-styleguide#1](https://github.com/kingkool68/wp-styleguide/pull/1), not merged yet. Blammo keeps its own `styleguide_path` guard regardless.
+- **wp-styleguide upstream:** path-traversal, redirect, rewrite-anchor and title-injection fixes are in [kingkool68/wp-styleguide#1](https://github.com/kingkool68/wp-styleguide/pull/1), not merged yet. Blammo keeps its own `styleguide_path` guard permanently.

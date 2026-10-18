@@ -18,6 +18,7 @@ The RH starter theme renders through Sprig (Twig) and builds blocks with ACF Pro
 - Block attributes live in `block.json`, and editor UI is written in React (`@wordpress/components`).
 - `render()` stays callable from templates and the styleguide, independent of the editor.
 - The theme has to handle Sprig being absent gracefully (`Blammo_Dependencies` returns early and serves a fallback template).
+- wp-styleguide is an optional runtime dependency, installed alongside Sprig. Without it, the styleguide 404s. The theme guards `styleguide_path` itself, permanently (architecture.md).
 - The starter's ACF usage outside blocks changes too:
   - `get_field()` calls (e.g. `page_hide_title`) become `register_post_meta()` plus an editor panel;
   - the styleguide block-audit and block demos are rewritten for `blammo/*` blocks.

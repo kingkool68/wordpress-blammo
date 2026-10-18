@@ -22,7 +22,7 @@ bin/                          # wp-local, install-mu-plugins, helper scripts
 1. If `vendor/autoload.php` exists, require it. It holds dev tooling only; the theme has no runtime composer deps.
 2. Require `functions/class-blammo-dependencies.php`. If `Blammo_Dependencies::is_sprig_ready()` is false, **return now**. That class then:
    - shows an admin notice;
-   - filters `template_include` to `templates/fallback.php`;
+   - filters `template_include` at priority `PHP_INT_MAX` to `templates/fallback.php`, so it also wins over wp-styleguide's routing;
    - loads no other classes or blocks, so nothing can call `Sprig::` and fatal.
    `is_sprig_ready()` checks both `class_exists( 'Sprig' )` and `class_exists( '\Twig\Environment' )`. Sprig's loader can succeed on any autoloader even when its Twig vendor dir is missing.
 3. `require_once` an explicit list of `functions/class-blammo-*.php`:
@@ -88,7 +88,7 @@ WP template hierarchy → page.php
 - `Sprig::render( $tpl, $ctx )` returns a string, and `Sprig::out()` echoes it.
 - `Sprig::do_action( $hook )` captures a hook's output as a string.
 - **Sprig builds Twig on `init` priority 10.** Calling `Sprig::render()` earlier fatals, so never render in `after_setup_theme` or `init` < 10.
-- **Search paths, in order:** the theme root, `twig/`, `views/`, then the `sprig/roots` additions (`styleguide/`, then each block dir).
+- **Search paths, in order:** the theme root, `views/`, `twig/` (Sprig's `sprig/theme_dirs` default), then the `sprig/roots` additions (`styleguide/`, then each block dir).
   - Template names share **one flat namespace**, and the first match wins.
   - So block templates are named `<name>-block.twig`, and every template name must be unique across all of these dirs. A block template named `pagination.twig` would silently render `twig/pagination.twig`.
 - **Autoescape is OFF** (ADR 0007). The available escaping filters are:
@@ -110,7 +110,11 @@ Mu-plugins load before the theme, so the theme's Sprig filters are registered in
 | [wp-styleguide](https://github.com/kingkool68/wp-styleguide) | Routes `/styleguide/<path>/` to `<theme>/styleguide/<path>.php`; `WP_Styleguide::get_sass_colors()` | Yes: it's a dev tool, and without the plugin the styleguide simply 404s |
 
 - Styleguide pages are plain PHP files that call component `render()` methods. Every component and block gets one.
-- **Known plugin issue:** `styleguide_path` is a public query var that reaches `locate_template()` unsanitized. Until the upstream fix is released, the theme strips everything except `[a-z0-9/_-]` and `..` segments from it (via a `request` filter).
+- **`styleguide_path` guard (kept permanently, even after the upstream fix):** `styleguide_path` is a public query var that reaches `locate_template()`. A theme `request` filter:
+  1. removes every character outside `[a-z0-9/_-]`, which drops all dots;
+  2. unsets the var if the result is empty or starts with `/`.
+
+  It needs PHPUnit coverage for `../`, `%2e%2e/` and `/etc/passwd`.
 
 ## Assets
 - `webpack.config.js` exports the wp-scripts default config, extended with the theme entries:
