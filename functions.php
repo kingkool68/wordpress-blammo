@@ -15,6 +15,9 @@ $blammo_files = array(
 if ( wp_get_environment_type() !== 'production' ) {
 	$blammo_files[] = 'class-blammo-staging.php';
 }
+if ( wp_get_environment_type() === 'local' ) {
+	$blammo_files[] = 'class-blammo-abilities.php';
+}
 foreach ( $blammo_files as $blammo_file ) {
 	require_once get_template_directory() . '/functions/' . $blammo_file;
 }
