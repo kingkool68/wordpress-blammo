@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: the scaffold landed in `feat/theme-scaffold`. Abilities, `bin/` and CI are still pending (see `status.md`). Blammo is a full block (FSE) theme (ADR 0008).
+> Status: the scaffold landed in `feat/theme-scaffold`. `Blammo_Abilities` landed in `feat/abilities`. `bin/` and CI are still pending (see `status.md`). Blammo is a full block (FSE) theme (ADR 0008).
 
 ## Directory map
 ```

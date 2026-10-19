@@ -42,7 +42,12 @@ bin/wp-local db export ~/blammo-backups/blammo-$(date +%F-%H%M).sql   # before a
 - The default server exposes three meta-tools: `mcp-adapter-discover-abilities`, `mcp-adapter-get-ability-info` and `mcp-adapter-execute-ability`. Discover, then inspect, then execute.
 - Theme abilities will live in `functions/class-blammo-abilities.php` (`feat/abilities`; none exist yet):
   - they're registered **only when the environment type is `local`**;
-  - each needs `manage_options` and uses `meta.mcp.public`.
+  - each needs `manage_options` and uses `meta.mcp.public` (with `show_in_rest` false, so it stays off `/wp-abilities/v1`);
+  - they only appear over MCP while Blammo is the **active** theme.
+- Theme abilities (category `blammo`):
+  | Ability | Input | Notes |
+  |---|---|---|
+  | `blammo/create-post` | `title` (required, ≤200), `content` (block markup, ≤100000), `excerpt` (≤1000), `status` (`draft` \| `pending` \| `private` \| `publish`, default `draft`) | Creates a `post` authored by the current user. **`publish` makes it publicly visible on the real local site**; `publish`/`private` also need `publish_posts`. Content and excerpt always go through `wp_kses_post` (the `claude` user has `unfiltered_html`). Returns `id`, `status`, `link`, `edit_link`. |
 - Use MCP for site state and content. Use `bin/wp-local` for anything an ability doesn't cover.
 
 ### MCP safety rules
