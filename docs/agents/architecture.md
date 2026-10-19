@@ -113,7 +113,7 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
 | Block `editorScript` | no | no | yes |
 | `wp_enqueue_block_style( 'core/<block>', … )` (core block overrides) | yes, on demand | yes | yes (in admin it hooks `enqueue_block_assets`), so scope selectors to the block's class |
 | `build/blammo.css` via `wp_enqueue_scripts` | yes | no | no |
-| `build/blammo.css` + `build/editor.css` via `add_editor_style()` (called in `action_after_setup_theme`) | no | yes (core scopes it to `.editor-styles-wrapper`) | no |
+| `build/blammo.css` + `build/editor.css` via `add_editor_style()` (called in `action_after_setup_theme`; the `-rtl` builds instead when `is_rtl()`, because core only appends an RTL variant of the first file) | no | yes (core scopes it to `.editor-styles-wrapper`) | no |
 | `build/editor.js` via `enqueue_block_editor_assets` | no | no | yes |
 - Rule: content CSS reaches the canvas through `theme.json`, block `style`/`editorStyle`, `wp_enqueue_block_style()` or `add_editor_style()`. Anything enqueued on `enqueue_block_editor_assets` stays in the outer frame, so use it for JS only.
 - Avoid enqueueing theme CSS on `enqueue_block_assets`: it also loads into the outer editor frame and can restyle the admin UI.

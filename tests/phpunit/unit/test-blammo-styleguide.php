@@ -76,4 +76,61 @@ class Test_Blammo_Styleguide extends TestCase {
 		$query_vars = array( 'p' => '12' );
 		$this->assertSame( $query_vars, Blammo_Styleguide::get_instance()->filter_request( $query_vars ) );
 	}
+
+	protected function tearDown(): void {
+		$GLOBALS['blammo_test_query_vars'] = array();
+		$this->set_page_title( '' );
+	}
+
+	private function set_page_title( $title ) {
+		$property = new ReflectionProperty( 'Blammo_Styleguide', 'page_title' );
+		$property->setValue( null, $title );
+	}
+
+	public function test_title_parts_are_untouched_outside_the_styleguide() {
+		$parts = array(
+			'title' => 'Hello',
+			'site'  => 'Test Site',
+		);
+		$this->assertSame( $parts, Blammo_Styleguide::get_instance()->filter_document_title_parts( $parts ) );
+	}
+
+	public function test_index_title_is_the_styleguide_name() {
+		$GLOBALS['blammo_test_query_vars'] = array( 'styleguide' => '1' );
+		$this->set_page_title( 'Styleguide' );
+		$parts = Blammo_Styleguide::get_instance()->filter_document_title_parts( array( 'title' => 'Blog' ) );
+		$this->assertSame( array( 'title' => 'Test Site Styleguide' ), $parts );
+	}
+
+	public function test_page_title_is_used_when_set() {
+		$GLOBALS['blammo_test_query_vars'] = array(
+			'styleguide'      => '1',
+			'styleguide_path' => 'colors',
+		);
+		$this->set_page_title( 'Colour palette' );
+		$parts = Blammo_Styleguide::get_instance()->filter_document_title_parts( array( 'title' => 'Blog' ) );
+		$this->assertSame(
+			array(
+				'title' => 'Colour palette',
+				'site'  => 'Test Site Styleguide',
+			),
+			$parts
+		);
+	}
+
+	public function test_title_falls_back_to_the_prettified_path() {
+		$GLOBALS['blammo_test_query_vars'] = array(
+			'styleguide'      => '1',
+			'styleguide_path' => 'blocks/text-image',
+		);
+		$parts                             = Blammo_Styleguide::get_instance()->filter_document_title_parts( array() );
+		$this->assertSame( 'Blocks Text Image', $parts['title'] );
+	}
+
+	public function test_home_and_blog_body_classes_are_dropped_on_styleguide_pages() {
+		$classes = array( 'home', 'blog', 'wp-theme-blammo' );
+		$this->assertSame( $classes, Blammo_Styleguide::get_instance()->filter_body_class( $classes ) );
+		$GLOBALS['blammo_test_query_vars'] = array( 'styleguide' => '1' );
+		$this->assertSame( array( 'wp-theme-blammo' ), Blammo_Styleguide::get_instance()->filter_body_class( $classes ) );
+	}
 }

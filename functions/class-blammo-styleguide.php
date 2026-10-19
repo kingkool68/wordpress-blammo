@@ -37,6 +37,7 @@ class Blammo_Styleguide {
 	public function setup_filters() {
 		add_filter( 'request', array( $this, 'filter_request' ) );
 		add_filter( 'document_title_parts', array( $this, 'filter_document_title_parts' ) );
+		add_filter( 'body_class', array( $this, 'filter_body_class' ) );
 	}
 
 	/**
@@ -122,6 +123,19 @@ class Blammo_Styleguide {
 	}
 
 	/**
+	 * Drop the home/blog classes core adds because a styleguide query resolves as is_home()
+	 *
+	 * @param array $classes Body classes
+	 * @return array Modified body classes
+	 */
+	public function filter_body_class( $classes = array() ) {
+		if ( ! static::is_styleguide_request() || ! is_array( $classes ) ) {
+			return $classes;
+		}
+		return array_values( array_diff( $classes, array( 'home', 'blog' ) ) );
+	}
+
+	/**
 	 * Render a block outside a template, the way core renders a parsed block
 	 *
 	 * @param string $block_name Block name, e.g. 'blammo/example'
@@ -167,9 +181,18 @@ class Blammo_Styleguide {
 			'core/group',
 			array(
 				'tagName' => 'main',
+				// Same padding as the templates' <main>.
+				'style'   => array(
+					'spacing' => array(
+						'padding' => array(
+							'top'    => 'var:preset|spacing|60',
+							'bottom' => 'var:preset|spacing|70',
+						),
+					),
+				),
 				'layout'  => array( 'type' => 'constrained' ),
 			),
-			'<main id="main" class="wp-block-group">' . $heading . (string) $body_html . '</main>'
+			'<main id="main" class="wp-block-group" style="padding-top:var(--wp--preset--spacing--60);padding-bottom:var(--wp--preset--spacing--70)">' . $heading . (string) $body_html . '</main>'
 		);
 		$footer = do_blocks( '<!-- wp:template-part {"slug":"footer","area":"footer","tagName":"footer"} /-->' );
 

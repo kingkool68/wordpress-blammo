@@ -28,6 +28,19 @@ function __( $text, $domain = 'default' ) {
 	return $text;
 }
 
+/*
+ * Query vars and site name are set per test through these globals.
+ */
+$GLOBALS['blammo_test_query_vars'] = array();
+
+function get_query_var( $query_var, $default_value = '' ) {
+	return $GLOBALS['blammo_test_query_vars'][ $query_var ] ?? $default_value;
+}
+
+function get_bloginfo( $show = '', $filter = 'raw' ) {
+	return $show === 'name' ? 'Test Site' : '';
+}
+
 function get_template_directory() {
 	return BLAMMO_TESTS_THEME_DIR;
 }

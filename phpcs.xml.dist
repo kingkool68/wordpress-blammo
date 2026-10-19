@@ -64,16 +64,16 @@
 
 	<!-- Test method names describe the test; doc comments there are optional. -->
 	<rule ref="Squiz.Commenting.FunctionComment.Missing">
-		<exclude-pattern>/tests/*</exclude-pattern>
+		<exclude-pattern>/tests/phpunit/[^/]+/[^/]+\.php$</exclude-pattern>
 	</rule>
 	<rule ref="Squiz.Commenting.FunctionComment.MissingParamTag">
-		<exclude-pattern>/tests/*</exclude-pattern>
+		<exclude-pattern>/tests/phpunit/[^/]+/[^/]+\.php$</exclude-pattern>
 	</rule>
 	<rule ref="Squiz.Commenting.ClassComment.Missing">
-		<exclude-pattern>/tests/*</exclude-pattern>
+		<exclude-pattern>/tests/phpunit/[^/]+/[^/]+\.php$</exclude-pattern>
 	</rule>
 	<rule ref="Generic.Commenting.DocComment.MissingShort">
-		<exclude-pattern>/tests/*</exclude-pattern>
+		<exclude-pattern>/tests/phpunit/[^/]+/[^/]+\.php$</exclude-pattern>
 	</rule>
 	<!-- The unit bootstrap stubs WordPress functions under their real names and signatures. -->
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound">
@@ -85,6 +85,6 @@
 
 	<!-- Tests follow PHPUnit naming, not WordPress file naming. -->
 	<rule ref="WordPress.Files.FileName">
-		<exclude-pattern>/tests/*</exclude-pattern>
+		<exclude-pattern>/tests/phpunit/[^/]+/[^/]+\.php$</exclude-pattern>
 	</rule>
 </ruleset>

@@ -33,7 +33,10 @@ class Blammo_Scripts_And_Styles {
 	 * Load the theme CSS into the editor canvas (core scopes it to .editor-styles-wrapper)
 	 */
 	public function action_after_setup_theme() {
-		add_editor_style( array( 'build/blammo.css', 'build/editor.css' ) );
+		// Core's add_editor_style() only appends an -rtl variant of the first file, on top of the LTR one.
+		// Pass the RTL builds instead; the extra "-rtl-rtl.css" core appends doesn't exist and is skipped.
+		$suffix = is_rtl() ? '-rtl' : '';
+		add_editor_style( array( 'build/blammo' . $suffix . '.css', 'build/editor' . $suffix . '.css' ) );
 	}
 
 	/**
