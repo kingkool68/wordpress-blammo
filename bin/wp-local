@@ -72,7 +72,7 @@ esac
 # field name with or without its `user_` / `post_` prefix.
 for arg in "$@"; do
 	case "$arg" in
-		*user_pass* | *user_activation_key* | *session_tokens*)
+		*user_pass* | *user_activation_key* | *session_tokens* | *_application_passwords*)
 			die "refusing to read password hashes, reset keys or session tokens"
 			;;
 		--field=* | --fields=*)
@@ -91,6 +91,16 @@ for arg in "$@"; do
 			;;
 	esac
 done
+# `user get` and `post get` print every field (password hash, post password)
+# unless --field/--fields narrows them.
+case "$command_name $subcommand_name" in
+	"user get" | "post get")
+		case " $* " in
+			*" --field="* | *" --fields="*) ;;
+			*) die "$command_name get needs --field=... or --fields=..., since the full record includes passwords" ;;
+		esac
+		;;
+esac
 if [ "$command_name" = "user" ] && [ "$subcommand_name" = "meta" ] && [ "$third_name" = "list" ]; then
 	case " $* " in
 		*" --keys="*) ;;
@@ -107,7 +117,8 @@ if [ "${WP_LOCAL_ALLOW_DESTRUCTIVE:-}" != "1" ]; then
 	for arg in "$@"; do
 		case "$arg" in
 			--exec | --exec=* | --require | --require=* | --path | --path=* | \
-				--ssh | --ssh=* | --http | --http=* | --context | --context=*)
+				--ssh | --ssh=* | --http | --http=* | --context | --context=* | \
+				--prompt | --prompt=*)
 				refuse "global flag ${arg%%=*}"
 				;;
 		esac
@@ -191,22 +202,33 @@ if [ "$command_name" = "db" ] && [ "$subcommand_name" = "export" ]; then
 	case "$export_file" in
 		*/) die "db export needs a file name, not a directory" ;;
 	esac
-	export_name="$(basename -- "$export_file")"
-	case "$export_name" in
-		. | ..) die "db export needs a file name inside $backup_dir/" ;;
+	# `x/..` through a symlinked x resolves physically outside the backup dir,
+	# so refuse . and .. components outright.
+	case "/$export_file/" in
+		*/./* | */../*) die "db export: no . or .. in the path" ;;
 	esac
+	export_name="$(basename -- "$export_file")"
 
 	(umask 077 && mkdir -p "$backup_dir")
-	export_dir="$(cd "$(dirname -- "$export_file")" 2>/dev/null && pwd -P)" \
+	export_dir="$(cd -P "$(dirname -- "$export_file")" 2>/dev/null && pwd -P)" \
 		|| die "db export: directory for $export_file doesn't exist"
-	real_backup_dir="$(cd "$backup_dir" && pwd -P)"
+	real_backup_dir="$(cd -P "$backup_dir" && pwd -P)"
 	if [ "$export_dir" != "$real_backup_dir" ]; then
 		die "db export only writes into $backup_dir/ (got $export_file)"
 	fi
 	if [ -e "$export_file" ] || [ -L "$export_file" ]; then
 		die "db export: $export_file already exists; pick a new name"
 	fi
-	set -- db export "$@"
+	# Hand WP-CLI the resolved path, not the caller's string.
+	resolved_args=()
+	for arg in "$@"; do
+		if [ "$arg" = "$export_file" ]; then
+			resolved_args+=( "$real_backup_dir/$export_name" )
+		else
+			resolved_args+=( "$arg" )
+		fi
+	done
+	set -- db export "${resolved_args[@]}"
 fi
 
 if [ "${WP_LOCAL_CHECK_ONLY:-}" = "1" ]; then

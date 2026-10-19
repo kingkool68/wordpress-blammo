@@ -16,6 +16,7 @@ backups="$test_home/blammo-backups"
 mkdir -p "$backups" "$test_home/elsewhere"
 ln -s "$test_home/elsewhere" "$test_home/link-to-elsewhere"
 ln -s "$test_home/elsewhere/x.sql" "$backups/symlink.sql"
+ln -s "$test_home/elsewhere" "$backups/subdir-link"
 touch "$backups/existing.sql"
 
 passed=0
@@ -97,6 +98,12 @@ expect rejected "unprefixed activation_key field" -- user get 1 --field=activati
 expect rejected "post password field" -- post list --fields=ID,password
 expect rejected "user meta list without --keys" -- user meta list 1
 expect allowed "user meta list with --keys" -- user meta list 1 --keys=nickname
+expect rejected "user get without fields" -- user get 1
+expect rejected "post get without fields" -- post get 1
+expect allowed "post get with fields" -- post get 1 --fields=ID,post_title
+expect rejected "application passwords meta" -- user meta get 1 _application_passwords
+expect refused "--prompt" -- user list --prompt
+expect refused "--prompt=fields" -- user list --prompt=fields
 expect allowed "user list with safe fields" -- user list --fields=ID,user_login,roles
 expect rejected "user_pass field" -- user list --fields=ID,user_pass
 expect rejected "user_activation_key field" -- user get 1 --field=user_activation_key
@@ -127,6 +134,8 @@ expect rejected "db export relative path" -- db export blammo.sql
 expect rejected "db export with .." -- db export "$backups/../elsewhere/blammo.sql"
 expect rejected "db export into a symlinked dir" -- db export "$test_home/link-to-elsewhere/blammo.sql"
 expect rejected "db export over an existing backup" -- db export "$backups/existing.sql"
+expect rejected "db export via symlink/.." -- db export "$backups/subdir-link/../new.sql"
+expect rejected "db export via ./" -- db export "$backups/./new.sql"
 expect rejected "db export onto a symlink" -- db export "$backups/symlink.sql"
 expect rejected "db export to a directory" -- db export "$backups/"
 expect rejected "db export with --result-file" -- db export "$backups/blammo.sql" --result-file=/tmp/x.sql
