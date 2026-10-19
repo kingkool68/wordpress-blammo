@@ -16,6 +16,7 @@ backups="$test_home/blammo-backups"
 mkdir -p "$backups" "$test_home/elsewhere"
 ln -s "$test_home/elsewhere" "$test_home/link-to-elsewhere"
 ln -s "$test_home/elsewhere/x.sql" "$backups/symlink.sql"
+touch "$backups/existing.sql"
 
 passed=0
 failed=0
@@ -57,7 +58,28 @@ expect refused "db drop" -- db drop --yes
 expect refused "db reset" -- db reset --yes
 expect refused "db cli" -- db cli
 expect refused "site empty" -- site empty --yes
-expect refused "eval after a global flag" -- --user=claude eval 'echo 1;'
+expect refused "package install" -- package install some/package
+expect refused "cli update" -- cli update
+expect refused "config set" -- config set FOO bar --raw
+expect refused "scaffold" -- scaffold plugin x
+expect refused "search-replace" -- search-replace a b
+expect refused "db clean" -- db clean --yes
+expect refused "plugin install" -- plugin install https://example.com/x.zip --activate
+expect refused "theme update" -- theme update --all
+expect refused "cron event run" -- cron event run --due-now
+expect refused "site delete" -- site delete 2
+
+# The command must come first, so a space-separated flag value can't hide it.
+expect rejected "flag before command" -- --user=claude eval 'echo 1;'
+expect rejected "space-form flag value before command" -- --user admin eval x
+expect rejected "space-form flag before db export" -- --user x db export /tmp/f
+expect rejected "no command" --
+
+# Secrets are never printed, even with the override.
+expect rejected "user_pass field" -- user list --fields=ID,user_pass
+expect rejected "user_activation_key field" -- user get 1 --field=user_activation_key
+expect rejected "session_tokens meta" -- user meta get 1 session_tokens
+ALLOW=1 expect rejected "user_pass with override" -- user list --fields=user_pass
 
 # Dangerous global flags are refused, even after a harmless command.
 expect refused "--exec" -- option get siteurl --exec='echo 1;'
@@ -82,6 +104,7 @@ expect rejected "db export elsewhere" -- db export "$test_home/elsewhere/blammo.
 expect rejected "db export relative path" -- db export blammo.sql
 expect rejected "db export with .." -- db export "$backups/../elsewhere/blammo.sql"
 expect rejected "db export into a symlinked dir" -- db export "$test_home/link-to-elsewhere/blammo.sql"
+expect rejected "db export over an existing backup" -- db export "$backups/existing.sql"
 expect rejected "db export onto a symlink" -- db export "$backups/symlink.sql"
 expect rejected "db export to a directory" -- db export "$backups/"
 expect rejected "db export with --result-file" -- db export "$backups/blammo.sql" --result-file=/tmp/x.sql

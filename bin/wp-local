@@ -6,14 +6,18 @@
 # PHP and can't reach Local's MySQL socket. This wrapper runs Local's own PHP
 # binary with Local's php.ini (PHPRC) and my.cnf (MYSQL_HOME).
 #
-# Machine-specific paths come from `.env.local` (copy `.env.local.example`).
-# From a worktree, the main checkout's `.env.local` is used.
+# Machine-specific paths come from `.env.local` in the main checkout (copy
+# `.env.local.example`). A worktree's own `.env.local` is never read.
 #
-# Guard rails (see docs/agents/local-environment.md):
-# - Commands that run arbitrary code or wipe data, and global flags that run
+# Guard rails (see docs/agents/local-environment.md). The guard is defence in
+# depth; the real gate is Claude Code's permission prompts.
+# - The WP-CLI command must be the first argument.
+# - Commands that run or install code, or wipe data, and global flags that run
 #   code or retarget the command, are refused unless
 #   WP_LOCAL_ALLOW_DESTRUCTIVE=1.
-# - `db export` only writes into ~/blammo-backups/.
+# - Password hashes, reset keys and session tokens are never printed.
+# - `db export` only writes new files into ~/blammo-backups/.
+# - WP-CLI runs from `/`, so no wp-cli.yml in a checkout is loaded.
 #
 # Set WP_LOCAL_CHECK_ONLY=1 to run the guard and exit without calling WP-CLI
 # (used by tests/bin/test-wp-local.sh).
@@ -35,16 +39,26 @@ backup_dir="$HOME/blammo-backups"
 
 # --- Guard -------------------------------------------------------------------
 
-positional=()
+# Requiring the command first means a space-separated flag value
+# (`--user admin eval ...`) can't be mistaken for the command.
+command_name="${1:-}"
+subcommand_name="${2:-}"
+case "$command_name" in
+	'') die "usage: bin/wp-local <command> [<subcommand>] [--flags]" ;;
+	-*) die "put the WP-CLI command first, before any flags (got $command_name)" ;;
+esac
+case "$subcommand_name" in
+	-*) subcommand_name="" ;;
+esac
+
+# Secrets are never printed, override or not.
 for arg in "$@"; do
 	case "$arg" in
-		-*) ;;
-		*) positional+=( "$arg" ) ;;
+		*user_pass* | *user_activation_key* | *session_tokens*)
+			die "refusing to read password hashes, reset keys or session tokens"
+			;;
 	esac
 done
-
-command_name="${positional[0]:-}"
-subcommand_name="${positional[1]:-}"
 
 if [ "${WP_LOCAL_ALLOW_DESTRUCTIVE:-}" != "1" ]; then
 	# WP-CLI aliases (@name) can retarget the command at another site.
@@ -62,63 +76,80 @@ if [ "${WP_LOCAL_ALLOW_DESTRUCTIVE:-}" != "1" ]; then
 	done
 
 	case "$command_name" in
-		eval | eval-file | shell)
+		eval | eval-file | shell | package | cli | config | scaffold | search-replace)
 			refuse "wp $command_name"
 			;;
 		db)
 			case "$subcommand_name" in
-				drop | reset | query | import | cli)
+				drop | reset | query | import | cli | clean)
 					refuse "wp db $subcommand_name"
 					;;
 			esac
 			;;
-		site)
-			if [ "$subcommand_name" = "empty" ]; then
-				refuse "wp site empty"
+		plugin | theme)
+			case "$subcommand_name" in
+				install | update | delete)
+					refuse "wp $command_name $subcommand_name"
+					;;
+			esac
+			;;
+		cron)
+			if [ "$subcommand_name" = "event" ] && [ "${3:-}" = "run" ]; then
+				refuse "wp cron event run"
 			fi
+			;;
+		site)
+			case "$subcommand_name" in
+				empty | delete)
+					refuse "wp site $subcommand_name"
+					;;
+			esac
 			;;
 	esac
 fi
 
-# `db export` is limited to ~/blammo-backups/, even when destructive commands
-# are allowed: it's the one write path agents run unattended.
+# `db export` is limited to new files in ~/blammo-backups/, even when
+# destructive commands are allowed: it's the one write path agents run
+# unattended, and it must never clobber an earlier backup.
 if [ "$command_name" = "db" ] && [ "$subcommand_name" = "export" ]; then
-	export_file="${positional[2]:-}"
-	if [ -z "$export_file" ] || [ "${#positional[@]}" -gt 3 ]; then
-		die "db export needs exactly one file path inside $backup_dir/"
-	fi
-
-	# mysqldump flags are passed through by WP-CLI and could redirect output
-	# (e.g. --result-file), so only allow a known-safe set.
+	shift 2
+	export_file=""
 	for arg in "$@"; do
 		case "$arg" in
-			-*)
-				case "$arg" in
-					--tables=* | --exclude_tables=* | --porcelain | --add-drop-table | --quiet) ;;
-					*) die "db export: flag ${arg%%=*} isn't allowed" ;;
-				esac
+			# mysqldump flags are passed through by WP-CLI and could redirect
+			# output (e.g. --result-file), so only allow a known-safe set.
+			--tables=* | --exclude_tables=* | --porcelain | --add-drop-table | --quiet) ;;
+			-*) die "db export: flag ${arg%%=*} isn't allowed" ;;
+			*)
+				[ -z "$export_file" ] || die "db export takes exactly one file path"
+				export_file="$arg"
 				;;
 		esac
 	done
 
 	case "$export_file" in
+		/*) ;;
+		*) die "db export needs an absolute path inside $backup_dir/" ;;
+	esac
+	case "$export_file" in
 		*/) die "db export needs a file name, not a directory" ;;
 	esac
 	export_name="$(basename -- "$export_file")"
 	case "$export_name" in
-		. | .. | -) die "db export needs a file name inside $backup_dir/" ;;
+		. | ..) die "db export needs a file name inside $backup_dir/" ;;
 	esac
 
-	mkdir -p "$backup_dir"
+	(umask 077 && mkdir -p "$backup_dir")
 	export_dir="$(cd "$(dirname -- "$export_file")" 2>/dev/null && pwd -P)" \
 		|| die "db export: directory for $export_file doesn't exist"
 	real_backup_dir="$(cd "$backup_dir" && pwd -P)"
 	if [ "$export_dir" != "$real_backup_dir" ]; then
 		die "db export only writes into $backup_dir/ (got $export_file)"
 	fi
-	if [ -L "$export_file" ]; then
-		die "db export: $export_file is a symlink"
+	if [ -e "$export_file" ] || [ -L "$export_file" ]; then
+		die "db export: $export_file already exists; pick a new name"
 	fi
+	set -- db export "$@"
 fi
 
 if [ "${WP_LOCAL_CHECK_ONLY:-}" = "1" ]; then
@@ -127,19 +158,14 @@ fi
 
 # --- Environment -------------------------------------------------------------
 
+# Always the main checkout's .env.local, never a worktree's: a worktree file is
+# gitignored, invisible in diffs, and easy for an agent to plant.
 script_dir="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-repo_dir="$(cd "$script_dir/.." && pwd -P)"
-env_file="$repo_dir/.env.local"
-
-if [ ! -f "$env_file" ]; then
-	# In a worktree, fall back to the main checkout's .env.local.
-	common_dir="$(git -C "$repo_dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
-	if [ -n "$common_dir" ] && [ -f "$(dirname -- "$common_dir")/.env.local" ]; then
-		env_file="$(dirname -- "$common_dir")/.env.local"
-	else
-		die "missing .env.local; copy .env.local.example to .env.local in the main checkout and fill in the paths"
-	fi
-fi
+common_dir="$(git -C "$script_dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
+	|| die "can't find the git checkout for $script_dir"
+env_file="$(dirname -- "$common_dir")/.env.local"
+[ -f "$env_file" ] \
+	|| die "missing $env_file; copy .env.local.example to .env.local in the main checkout and fill in the paths"
 
 LOCAL_SITE_ID=""
 LOCAL_PHP_BIN=""
@@ -191,7 +217,9 @@ socket="$local_run_dir/mysql/mysqld.sock"
 export PHPRC="$local_run_dir/conf/php"
 export MYSQL_HOME="$local_run_dir/conf/mysql"
 
-# Local's wp-cli config makes `wp db *` pass --defaults, so MYSQL_HOME is used.
+# Only Local's wp-cli config, which makes `wp db *` pass --defaults so
+# MYSQL_HOME is used. Drop any other WP-CLI settings from the caller's env.
+unset WP_CLI_CONFIG_PATH WP_CLI_PACKAGES_DIR WP_CLI_PHP WP_CLI_PHP_ARGS WP_CLI_CUSTOM_SHELL
 wp_cli_config="$(dirname -- "$LOCAL_WP_CLI")/config.yaml"
 if [ -f "$wp_cli_config" ]; then
 	export WP_CLI_CONFIG_PATH="$wp_cli_config"
@@ -202,4 +230,8 @@ if [ -n "$LOCAL_MYSQL_BIN" ]; then
 	export PATH="$LOCAL_MYSQL_BIN:$PATH"
 fi
 
+# WP-CLI loads wp-cli.yml / wp-cli.local.yml from the cwd and its parents,
+# and those can set `require:`. Run from / so none are found.
+cd /
+umask 077
 exec "$LOCAL_PHP_BIN" "$LOCAL_WP_CLI" --path="$WP_PATH" "$@"
