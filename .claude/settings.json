@@ -1,0 +1,134 @@
+{
+	"$schema": "https://json.schemastore.org/claude-code-settings.json",
+	"permissions": {
+		"allow": [
+			"Bash(npm ci)",
+			"Bash(npm install)",
+			"Bash(npm run build:*)",
+			"Bash(npm run start:*)",
+			"Bash(npm run lint:*)",
+			"Bash(npm run format:*)",
+			"Bash(npm run test:*)",
+			"Bash(npm run env:*)",
+			"Bash(npx wp-env start:*)",
+			"Bash(npx wp-env stop:*)",
+			"Bash(npx wp-env run tests-cli:*)",
+			"Bash(composer install)",
+			"Bash(composer validate:*)",
+			"Bash(composer lint:*)",
+			"Bash(composer test:*)",
+			"Bash(vendor/bin/phpcs:*)",
+			"Bash(vendor/bin/phpcbf:*)",
+			"Bash(vendor/bin/phpunit:*)",
+			"Bash(php -l:*)",
+			"Bash(bin/install-mu-plugins .cache/mu-plugins)",
+			"Bash(bin/wp-local option get:*)",
+			"Bash(bin/wp-local option list:*)",
+			"Bash(bin/wp-local post list:*)",
+			"Bash(bin/wp-local post get:*)",
+			"Bash(bin/wp-local theme status:*)",
+			"Bash(bin/wp-local theme list:*)",
+			"Bash(bin/wp-local plugin list:*)",
+			"Bash(bin/wp-local plugin status:*)",
+			"Bash(bin/wp-local user list:*)",
+			"Bash(bin/wp-local menu list:*)",
+			"Bash(bin/wp-local rewrite list:*)",
+			"Bash(bin/wp-local rewrite flush:*)",
+			"Bash(bin/wp-local cache flush:*)",
+			"Bash(bin/wp-local db export ~/blammo-backups/:*)",
+			"Bash(bin/wp-local mcp-adapter list:*)",
+			"Bash(python3 .claude/skills/ship-pr/build-prompt-artifact.py:*)",
+			"Bash(git status:*)",
+			"Bash(git diff:*)",
+			"Bash(git log:*)",
+			"Bash(git show:*)",
+			"Bash(git fetch:*)",
+			"Bash(git add:*)",
+			"Bash(git commit:*)",
+			"Bash(git push -u origin:*)",
+			"Bash(git push origin:*)",
+			"Bash(git push --force-with-lease origin:*)",
+			"Bash(git rebase origin/main)",
+			"Bash(git worktree add:*)",
+			"Bash(git worktree list:*)",
+			"Bash(git branch --show-current)",
+			"Bash(git branch -a)",
+			"Bash(git branch --list:*)",
+			"Bash(git switch -c:*)",
+			"Bash(git rev-parse:*)",
+			"Bash(gh pr create:*)",
+			"Bash(gh pr view:*)",
+			"Bash(gh pr list:*)",
+			"Bash(gh pr diff:*)",
+			"Bash(gh pr checks:*)",
+			"Bash(gh issue view:*)",
+			"Bash(gh issue list:*)",
+			"Bash(gh run view:*)",
+			"Bash(gh run list:*)",
+			"mcp__blammo-wp__mcp-adapter-discover-abilities",
+			"mcp__blammo-wp__mcp-adapter-get-ability-info"
+		],
+		"ask": [
+			"Edit(/.claude/hooks/**)",
+			"Write(/.claude/hooks/**)",
+			"Edit(/.claude/skills/**/*.py)",
+			"Write(/.claude/skills/**/*.py)",
+			"Edit(/.claude/settings.json)",
+			"Write(/.claude/settings.json)",
+			"Edit(/.claude/settings.local.json)",
+			"Write(/.claude/settings.local.json)",
+			"Edit(**/.claude/hooks/**)",
+			"Write(**/.claude/hooks/**)",
+			"Edit(**/.claude/settings*.json)",
+			"Write(**/.claude/settings*.json)",
+			"Bash(bin/wp-local mcp-adapter serve:*)"
+		],
+		"deny": [
+			"Bash(gh pr merge:*)",
+			"Bash(git reset --hard:*)",
+			"Bash(git clean:*)",
+			"Bash(git push --mirror:*)",
+			"Bash(git push --force:*)",
+			"Bash(git push -f:*)",
+			"Bash(rm -rf /)",
+			"Bash(rm -rf ~)",
+			"Bash(bin/wp-local db reset:*)",
+			"Bash(bin/wp-local db drop:*)",
+			"Bash(bin/wp-local site empty:*)"
+		]
+	},
+	"hooks": {
+		"UserPromptSubmit": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/capture-prompt.sh"
+					}
+				]
+			}
+		],
+		"PreToolUse": [
+			{
+				"matcher": "Bash",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-git.py || exit 2"
+					}
+				]
+			}
+		],
+		"PostToolUse": [
+			{
+				"matcher": "Edit|Write|MultiEdit",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/lint-php.sh"
+					}
+				]
+			}
+		]
+	}
+}
