@@ -1,15 +1,15 @@
 # WordPress security checklist
 
 ## Output
-- [ ] Every Twig `{{ }}` is escaped for its context (autoescape is OFF): `esc_html`, `esc_attr`, `esc_url`, `wp_kses_post`.
-- [ ] Values that hold pre-built HTML are built safely in PHP, and their names make that clear.
-- [ ] PHP `echo` output is escaped late. `wp_json_encode` is used for data passed into JS.
+- [ ] Every `echo` in PHP (`render.php`, `patterns/*.php`, `styleguide/*.php`, classes) is escaped late for its context: `esc_html`, `esc_attr`, `esc_url`, `wp_kses_post`. `wp_json_encode` is used for data passed into JS.
+- [ ] Unescaped echoes are limited to known-safe HTML (`get_block_wrapper_attributes()`, `$content` inner blocks, documented escaped helpers), each with a comment saying why.
+- [ ] Block markup is never built by interpolating values into block-comment JSON; use `render_block()` / `serialize_block()`.
 - [ ] Inline SVG comes only from theme files with a fixed allowlisted name (no user-controlled path), or is sanitized.
 
 ## Input
 - [ ] `$_GET`, `$_POST`, `$_REQUEST` and `$_SERVER` go through `wp_unslash()` and then the right `sanitize_*` function.
-- [ ] Block attributes are typed in `block.json` and validated again in PHP before use.
-- [ ] No file includes or Twig template names built from user input (path traversal).
+- [ ] Block attributes are typed in `block.json` (with `enum` where a value becomes a class, tag or option) and checked again in PHP before use. Attribute strings are author-controlled and can hold HTML.
+- [ ] No file includes, template or part slugs built from user input (path traversal). The `styleguide_path` guard stays in place with its tests.
 
 ## Authorization
 - [ ] Every state-changing request checks a nonce (`check_admin_referer` / `wp_verify_nonce`) **and** a capability (`current_user_can`).

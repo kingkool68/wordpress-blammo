@@ -10,12 +10,12 @@ Drop Gulp. Blocks live in **`src/blocks/<name>/`**, the wp-scripts default sourc
 - zero-config auto-discovery of `block.json`;
 - the build goes to `build/blocks/<name>/`, with `block.json` copied there.
 
-`webpack.config.js` exports the default config, plus the theme entries `blammo` and `editor`, merged with `...defaultConfig.entry()`. SCSS is compiled through wp-scripts. Lint, format and tests also use wp-scripts commands.
+`webpack.config.js` exports the default config, plus the theme entries `blammo` and `editor`, merged with `...defaultConfig.entry()`. Build with `--webpack-copy-php` (copies each block's `render.php`) and `--blocks-manifest`. SCSS is compiled through wp-scripts. Lint, format and tests also use wp-scripts commands.
 
 ## Consequences
 - One toolchain to maintain. Enqueueing reads `build/*.asset.php` for deps and version, which replaces mtime cache busting.
 - The starter's `.src.js` suffix convention goes away. Sources live in `src/`, and output goes to `build/`.
-- Block PHP classes and Twig live beside the block source in `src/blocks/<name>/`. The PHP loader and `sprig/roots` point there.
+- Each block's `render.php` lives beside its source in `src/blocks/<name>/` and is copied to `build/blocks/<name>/`; registration reads `build/` only (ADR 0008, which replaced the per-block PHP class and Twig).
 
 ## Alternatives considered
 - **Keep Gulp, plus wp-scripts for blocks:** rejected because it means two toolchains.

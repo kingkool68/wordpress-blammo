@@ -1,6 +1,6 @@
 # 0003 — No `theme.json`; SCSS owns design tokens
 
-- Status: accepted (2026-10-18)
+- Status: superseded by 0008 (2026-10-18)
 
 ## Context
 `theme.json` would introduce a second source of design tokens and front-end global styles, which the starter deliberately dequeues.

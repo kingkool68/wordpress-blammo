@@ -6,7 +6,7 @@
 The local site (Local by Flywheel) holds real content and is tied to one machine. CI needs an identical, disposable WordPress.
 
 ## Decision
-PHPUnit (via `wp-env run tests-cli`), Jest and Playwright all run against wp-env locally and in GitHub Actions. Tests never touch blammo.local. Sprig is mounted into wp-env as an mu-plugin.
+PHPUnit (via `wp-env run tests-cli`), Jest and Playwright all run against wp-env locally and in GitHub Actions. Tests never touch blammo.local. wp-styleguide is installed into wp-env from a pinned commit zip; there are no mu-plugins (ADR 0008).
 
 ## Consequences
 - Running tests requires Docker.

@@ -20,8 +20,11 @@ Drop any finding without a concrete failure scenario. End with a one-line verdic
 - [ ] Does it follow `conventions.md` (prefixes, class pattern, `action_`/`filter_` naming, no Yoda)?
 - [ ] Hooks: correct hook, priority and arg count? Does it run too early, e.g. before `init` or `wp_abilities_api_init`?
 - [ ] Null and empty handling: missing post, empty attribute, no thumbnail, no menu assigned?
-- [ ] Is every Twig output escaped?
+- [ ] Is every output in `render.php`, patterns and styleguide pages escaped?
+- [ ] Do `render.php` files avoid declaring functions/classes (two instances of the block on one page must not fatal)?
 - [ ] Do the tests cover the behaviour and the escaping, and do they actually fail without the change?
-- [ ] Does it still work when Sprig isn't loaded, without a fatal error?
+- [ ] Does it degrade without a fatal when `build/` is missing or wp-styleguide isn't active?
+- [ ] Do design values come from `theme.json` presets rather than new hard-coded SCSS values?
+- [ ] Are template/part changes valid block markup, and was the result checked with site-editor customizations reset?
 - [ ] Are the docs updated (`status.md` plus any changed convention)?
 - [ ] No debug leftovers (`var_dump`, `error_log`, `console.log`), and no secrets.

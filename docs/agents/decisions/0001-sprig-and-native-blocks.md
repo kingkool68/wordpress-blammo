@@ -1,6 +1,6 @@
 # 0001 — Sprig (Twig) templating with native blocks; no ACF
 
-- Status: accepted (2026-10-18)
+- Status: superseded by 0008 (2026-10-18)
 
 ## Context
 The RH starter theme renders through Sprig (Twig) and builds blocks with ACF Pro (`acf_register_block_type` plus local field groups). Blammo should keep the starter's PHP → Twig separation but avoid a paid plugin dependency, and stay aligned with core block APIs.

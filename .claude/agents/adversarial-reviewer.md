@@ -13,12 +13,12 @@ You are an adversarial reviewer. Assume the change is wrong until you've shown o
 - `docs/agents/checklists/review.md` (format and general checklist) and `docs/agents/conventions.md`.
 
 ## Attack surface to probe
-- **Inputs:** empty, null, missing post or thumbnail, no menu assigned, very long strings, unicode/RTL, HTML and script payloads in every field that reaches Twig.
+- **Inputs:** empty, null, missing post or thumbnail, no menu assigned, very long strings, unicode/RTL, HTML and script payloads in every field that reaches `render.php` or a pattern.
 - **WordPress lifecycle:**
   - code running before `init` or `after_setup_theme`;
   - code running in admin vs front end vs REST vs WP-CLI vs the block editor preview;
   - multisite; `is_singular` vs archive contexts; pagination edges (page 0, last page + 1).
-- **Dependencies:** what happens when the Sprig mu-plugin is missing, `build/` doesn't exist yet, or a block is used after being removed.
+- **Dependencies:** what happens when `build/` doesn't exist yet (blocks unregistered), wp-styleguide is inactive, two instances of a block are on one page (redeclare fatal), a template or part is customized in the site editor (DB override), or a block is used after being removed.
 - **Tests:**
   - Would the tests still pass if the implementation were deleted or wrong?
   - Are the assertions meaningful?

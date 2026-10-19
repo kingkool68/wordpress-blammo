@@ -27,7 +27,7 @@ Paste the verbatim prompt(s) here.
 | accessibility-reviewer | | | |
 | architect | | | |
 
-<!-- Remove rows for reviewers that didn't run, and say why (e.g. "no Twig/SCSS/JS changed"). List open minor findings below. -->
+<!-- Remove rows for reviewers that didn't run, and say why (e.g. "no templates/parts/patterns/render.php/SCSS/JS changed"). List open minor findings below. -->
 
 ## Test evidence
 <!-- Commands run and their results. Never claim a check that wasn't run. -->
