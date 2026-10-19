@@ -66,6 +66,7 @@ case "$subcommand_name" in
 	connect) subcommand_name="cli" ;;
 	upgrade) subcommand_name="update" ;;
 	uninstall) subcommand_name="delete" ;;
+	install-network) subcommand_name="multisite-convert" ;;
 esac
 
 # Best effort against printing secrets, override or not. WP-CLI resolves a
@@ -80,10 +81,13 @@ for arg in "$@"; do
 			while [ -n "$fields" ]; do
 				field="${fields%%,*}"
 				fields="${fields#*,}"
+				# WP-CLI trims each field name, so compare trimmed.
+				field="${field#"${field%%[![:space:]]*}"}"
+				field="${field%"${field##*[![:space:]]}"}"
 				field="${field#user_}"
 				field="${field#post_}"
 				case "$field" in
-					pass | password | activation_key)
+					pass | password | activation_key | token)
 						die "refusing to read password fields ($field)"
 						;;
 				esac
@@ -91,20 +95,43 @@ for arg in "$@"; do
 			;;
 	esac
 done
-# `user get` and `post get` print every field (password hash, post password)
-# unless --field/--fields narrows them.
-case "$command_name $subcommand_name" in
-	"user get" | "post get")
-		case " $* " in
-			*" --field="* | *" --fields="*) ;;
-			*) die "$command_name get needs --field=... or --fields=..., since the full record includes passwords" ;;
+# has_arg <pattern>: true if one whole argument matches the glob pattern.
+has_arg() {
+	local pattern="$1" arg
+	shift
+	for arg in "$@"; do
+		# shellcheck disable=SC2254
+		case "$arg" in
+			$pattern) return 0 ;;
 		esac
+	done
+	return 1
+}
+
+# `user get`, `post get` and `user session list` print every field (password
+# hash, post password, session verifiers) unless --field/--fields narrows them.
+case "$command_name $subcommand_name $third_name" in
+	"user get "* | "post get "* | "user session list")
+		if ! has_arg '--field=?*' "$@" && ! has_arg '--fields=?*' "$@"; then
+			die "this command needs --field=... or --fields=..., since the full record includes secrets"
+		fi
 		;;
 esac
 if [ "$command_name" = "user" ] && [ "$subcommand_name" = "meta" ] && [ "$third_name" = "list" ]; then
-	case " $* " in
-		*" --keys="*) ;;
-		*) die "user meta list needs --keys=..., since the full list includes session tokens" ;;
+	if ! has_arg '--keys=?*' "$@"; then
+		die "user meta list needs --keys=..., since the full list includes session tokens"
+	fi
+fi
+
+# `db check|optimize|repair` pass every flag through to mysqlcheck, which can
+# load native client plugins (--plugin-dir, --default-auth).
+if [ "$command_name" = "db" ]; then
+	case "$subcommand_name" in
+		check | optimize | repair)
+			if has_arg '--*' "$@"; then
+				die "db $subcommand_name: flags are passed to mysqlcheck, so none are allowed"
+			fi
+			;;
 	esac
 fi
 
@@ -125,7 +152,7 @@ if [ "${WP_LOCAL_ALLOW_DESTRUCTIVE:-}" != "1" ]; then
 	done
 
 	case "$command_name" in
-		eval | eval-file | shell | package | cli | config | scaffold | search-replace)
+		eval | eval-file | shell | package | cli | config | scaffold | search-replace | server)
 			refuse "wp $command_name"
 			;;
 		db)
@@ -298,7 +325,11 @@ export MYSQL_HOME="$local_run_dir/conf/mysql"
 
 # Only Local's wp-cli config, which makes `wp db *` pass --defaults so
 # MYSQL_HOME is used. Drop any other WP-CLI settings from the caller's env.
-unset WP_CLI_CONFIG_PATH WP_CLI_PACKAGES_DIR WP_CLI_PHP WP_CLI_PHP_ARGS WP_CLI_CUSTOM_SHELL
+# PHP_INI_SCAN_DIR could add an auto_prepend_file; WP_CLI_*REQUIRE load PHP.
+unset WP_CLI_CONFIG_PATH WP_CLI_PACKAGES_DIR WP_CLI_PHP WP_CLI_PHP_ARGS WP_CLI_CUSTOM_SHELL \
+	WP_CLI_REQUIRE WP_CLI_EARLY_REQUIRE WP_CLI_SSH_PRE_CMD WP_CLI_STRICT_ARGS_MODE \
+	WP_CLI_CACHE_DIR PHP_INI_SCAN_DIR
+export PAGER=cat
 wp_cli_config="$(dirname -- "$LOCAL_WP_CLI")/config.yaml"
 if [ -f "$wp_cli_config" ]; then
 	export WP_CLI_CONFIG_PATH="$wp_cli_config"

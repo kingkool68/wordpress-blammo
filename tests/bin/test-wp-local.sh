@@ -104,6 +104,23 @@ expect allowed "post get with fields" -- post get 1 --fields=ID,post_title
 expect rejected "application passwords meta" -- user meta get 1 _application_passwords
 expect refused "--prompt" -- user list --prompt
 expect refused "--prompt=fields" -- user list --prompt=fields
+expect rejected "pass with a leading space" -- user list '--fields=ID, pass'
+expect rejected "pass with a tab" -- user list "$(printf -- '--fields=ID,\tpass')"
+expect rejected "password with trailing space" -- post list '--fields=ID,password '
+expect rejected "app password list" -- user application-password list 1 '--fields=uuid, password'
+expect rejected "empty --keys" -- user meta list 1 --keys=
+expect rejected "--keys hidden in another flag" -- user meta list 1 '--skip-plugins= --keys=x'
+expect rejected "--fields hidden in another flag" -- post get 1 '--skip-plugins= --fields=ID'
+expect rejected "--field hidden in another flag" -- user get 1 '--skip-plugins= --field=ID'
+expect rejected "user session list without fields" -- user session list 1 --format=json
+expect rejected "user session list with token field" -- user session list 1 --fields=login_time,token
+expect allowed "user session list with safe fields" -- user session list 1 --fields=login_time,expiration
+expect rejected "db check with mysqlcheck flags" -- db check --plugin-dir=/tmp/p --default-auth=evil
+expect rejected "db optimize with flags" -- db optimize --plugin-dir=/tmp/p
+expect rejected "db repair with flags" -- db repair --default-auth=evil
+expect allowed "db check without flags" -- db check
+expect refused "core install-network (alias of multisite-convert)" -- core install-network
+expect refused "server" -- server --config=/tmp/evil.ini
 expect allowed "user list with safe fields" -- user list --fields=ID,user_login,roles
 expect rejected "user_pass field" -- user list --fields=ID,user_pass
 expect rejected "user_activation_key field" -- user get 1 --field=user_activation_key
