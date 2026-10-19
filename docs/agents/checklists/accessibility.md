@@ -3,7 +3,7 @@
 ## Structure
 - [ ] Landmarks: one `<main>`, a `<header>` / `<footer>`, `<nav>` with an accessible name when there are several.
 - [ ] Headings form a logical outline, with one `h1` per page and no skipped levels inside components.
-- [ ] Each template has exactly one `<main>` (core inserts a skip link at the top of `.wp-site-blocks` that targets it). Styleguide pages print their own skip link and `<main id="main">`.
+- [ ] Each template has exactly one `<main>` (core adds a skip link at the start of the page that targets it). Styleguide pages print their own skip link and `<main id="main">`.
 - [ ] Header and footer parts render as `<header>` / `<footer>` (template part `area` or `tagName`).
 - [ ] `lang` is set on `<html>` via `language_attributes()` (core does this in block templates; styleguide pages must do it).
 

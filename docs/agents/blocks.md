@@ -41,9 +41,10 @@ if ( '' === trim( $headline ) ) {
 	return; // Renders nothing.
 }
 ?>
+<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by core. ?>
 <div <?php echo get_block_wrapper_attributes( array( 'class' => 'example-block' ) ); ?>>
 	<h2 class="example-block__headline"><?php echo esc_html( $headline ); ?></h2>
-	<?php echo Blammo_SVG::get_icon( 'arrow' ); ?>
+	<?php echo Blammo_SVG::get_icon( 'arrow' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns escaped SVG. ?>
 </div>
 ```
 - **Escape at output:** `esc_html`, `esc_attr`, `esc_url`, `wp_kses_post`. Translated strings use `esc_html__( '…', 'blammo' )` / `esc_html_e()`.
@@ -53,6 +54,7 @@ if ( '' === trim( $headline ) ) {
 - `return` early to render nothing. Don't `echo` outside the markup and don't `exit`.
 - Queries: `WP_Query` with `no_found_rows => true`, and `wp_reset_postdata()` after any loop that calls `the_post()`.
 - Never `require` a `render.php` yourself, and never from `functions.php`.
+- `render.php` runs inside a closure, so its variables aren't globals. `phpcs.xml.dist` excludes `src/blocks/*/render.php`, `patterns/` and `styleguide/` from `WordPress.NamingConventions.PrefixAllGlobals`.
 
 ## Rendering outside a template
 - Styleguide pages: `Blammo_Styleguide::block( 'blammo/<name>', $attributes )` (wraps `render_block()`).

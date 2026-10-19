@@ -22,8 +22,9 @@ Last updated: 2026-10-18 by `docs/block-theme-pivot`
    - `Blammo_Blocks`: manifest registration (no fatal if `build/` is missing), plus the block and pattern categories
    - `Blammo_Scripts_And_Styles`: handles from `build/*.asset.php`, `add_editor_style` for canvas CSS (in `action_after_setup_theme`), editor JS on `enqueue_block_editor_assets` only
    - a webpack build with `--webpack-copy-php --blocks-manifest` (verify both flags exist)
-   - `Blammo_Styleguide`: the `styleguide_path` `request` guard with PHPUnit for `../`, `%2e%2e/` and `/etc/passwd`, plus the `page()` / `block()` shell helpers
+   - `Blammo_Styleguide`: the `styleguide_path` `request` guard with PHPUnit for `../`, `%2e%2e/` and `/etc/passwd`, plus the `page()` / `block()` shell helpers (`.wp-site-blocks` wrapper, constrained `<main>`, `document_title_parts` filter)
    - no Sprig, Twig, mu-plugins or `bin/install-mu-plugins`
+   - `phpcs.xml.dist` excludes `render.php`, `patterns/` and `styleguide/` from PrefixAllGlobals
    - all tool configs exclude `.claude/worktrees/`
 2. `chore/testing-ci`: wp-env, PHPUnit, Jest, Playwright + axe, GitHub Actions `ci.yml` and `deploy.yml`.
    - Deploy ships `build/` (including `render.php` files and `blocks-manifest.php`), `theme.json`, `templates/`, `parts/`, `patterns/`, `styles/`, `assets/` and the PHP. `src/` and `styleguide/` are dev-only.
@@ -40,6 +41,6 @@ Last updated: 2026-10-18 by `docs/block-theme-pivot`
 - There's no theme code yet, so the build, lint and test commands in `CLAUDE.md` don't work yet.
 - `bin/wp-local`, `.env.local.example` and `.mcp.json` don't exist yet. Don't modify blammo.local until `feat/mcp-adapter` is merged.
 - `.claude/hooks/lint-php.sh` falls back to `php -l` only until `vendor/bin/phpcs` exists.
-- **wp-styleguide upstream:** path-traversal, redirect, rewrite-anchor and title-injection fixes are in [kingkool68/wp-styleguide#1](https://github.com/kingkool68/wp-styleguide/pull/1), not merged yet. Blammo keeps its own `styleguide_path` guard permanently.
+- **wp-styleguide upstream:** the path-traversal, redirect, rewrite-anchor and title-injection fixes in [kingkool68/wp-styleguide#1](https://github.com/kingkool68/wp-styleguide/pull/1) merged 2026-10-19 (`1664c7e`). Pin wp-styleguide to that commit or later. Blammo keeps its own `styleguide_path` guard permanently.
 - Activating Blammo on blammo.local replaces classic menus, widgets and Customizer settings. Site-editor customizations are stored in the DB and override theme files.
 - `.claude/settings.json` still allows `bin/install-mu-plugins`, a script that's no longer planned. The rule is harmless; remove it when the permission list is next revised.

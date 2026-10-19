@@ -20,7 +20,7 @@ There are two WordPress environments, and they serve different purposes:
   - PHP config: `~/Library/Application Support/Local/run/$LOCAL_SITE_ID/conf/php` (its `php.ini` points `mysqli.default_socket` at that socket)
 - `WP_ENVIRONMENT_TYPE` is `local`.
 - No mu-plugins are needed. [wp-styleguide](https://github.com/kingkool68/wp-styleguide) is an optional regular plugin (`wp-content/plugins/wp-styleguide/`), installed by hand from a reviewed commit; without it `/styleguide/` 404s.
-- Blammo is a **block theme**. Site-editor edits to templates, parts and global styles are stored in the database and override the theme files. Before judging a file change on blammo.local, check for overrides (`bin/wp-local post list --post_type=wp_template,wp_template_part,wp_global_styles`) and reset them in Site Editor → Templates / Patterns (after a `db export`).
+- Blammo is a **block theme**. Site-editor edits to templates, parts and global styles are stored in the database and override the theme files. Before judging a file change on blammo.local, check for overrides (`bin/wp-local post list --post_type=wp_template,wp_template_part,wp_global_styles`, then keep only posts whose `wp_theme` term is `blammo`; an empty `wp_global_styles` post, `{"version":3,"isGlobalStylesUserThemeJSON":true}`, is created when the Site Editor opens and isn't an override) and reset them in Site Editor → Templates / Patterns (after a `db export`).
 - The site must be **running in the Local app**, or the socket doesn't exist and WP-CLI and MCP fail.
 
 ## WP-CLI: always `bin/wp-local`

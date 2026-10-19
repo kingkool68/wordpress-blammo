@@ -87,7 +87,7 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
           → core/post-content, core/query, ... (core render callbacks)
           → core/pattern → patterns/<name>.php
           → blammo/<name> → build/blocks/<name>/render.php ($attributes, $content, $block)
-          → skip link inserted at the top of .wp-site-blocks, targeting the first <main>
+          → skip link inserted before div.wp-site-blocks, targeting the first <main> (core adds an id if it has none)
       → <html language_attributes()> … wp_head() … body_class() … wp_body_open() … template HTML … wp_footer()
 ```
 - Templates and parts are static block markup: no PHP, no translatable strings. Put strings in patterns and dynamic data in blocks.
@@ -111,7 +111,7 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
 | Block `editorStyle` | no | yes | no |
 | Block `viewScript` | yes, on demand | no | no |
 | Block `editorScript` | no | no | yes |
-| `wp_enqueue_block_style( 'core/<block>', … )` (core block overrides) | yes, on demand | yes | no |
+| `wp_enqueue_block_style( 'core/<block>', … )` (core block overrides) | yes, on demand | yes | yes (in admin it hooks `enqueue_block_assets`), so scope selectors to the block's class |
 | `build/blammo.css` via `wp_enqueue_scripts` | yes | no | no |
 | `build/blammo.css` + `build/editor.css` via `add_editor_style()` (called in `action_after_setup_theme`) | no | yes (core scopes it to `.editor-styles-wrapper`) | no |
 | `build/editor.js` via `enqueue_block_editor_assets` | no | no | yes |
@@ -123,17 +123,18 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
 [wp-styleguide](https://github.com/kingkool68/wp-styleguide) filters `template_include` and serves `locate_template( 'styleguide/<path>.php' )` for the public query var `styleguide_path`. It replaces `template-canvas.php`, so a styleguide page is plain PHP that **prints the whole HTML document itself**.
 - It's a regular dev plugin, installed by hand on blammo.local and from a pinned commit zip in `.wp-env.json` `plugins`. No mu-plugin, no install script. Without it, `/styleguide/` 404s and the theme is unaffected.
 - `Blammo_Styleguide` provides the shell, so pages stay short:
-  - `Blammo_Styleguide::block( 'blammo/<name>', $attributes, $inner_html = '' )` returns `render_block()` output for a parsed-block array. Don't hand-build block-comment JSON from values.
+  - `Blammo_Styleguide::block( 'blammo/<name>', $attributes, $inner_html = '' )` returns `render_block()` output for a parsed-block array with `innerHTML` **and** `innerContent => array( $inner_html )` (`WP_Block::render()` builds `$content` from `innerContent` only). `$inner_html` is rendered HTML; for inner *blocks*, build markup with `serialize_block()` and pass it through `do_blocks()`. Don't hand-build block-comment JSON from values.
   - `Blammo_Styleguide::page( $title, $body_html )` prints the document in the same order as `template-canvas.php`:
-    1. render first: `do_blocks( '<!-- wp:template-part {"slug":"header","area":"header"} /-->' )`, the same for `footer`. Unlike `block_template_part()`, this returns a string, honours DB overrides and wraps the part in its `<header>` / `<footer>` landmark;
+    1. render first: `do_blocks( '<!-- wp:template-part {"slug":"header","area":"header"} /-->' )`, the same for `footer`. Both this and `block_template_part()` honour DB overrides, but this returns a string and wraps the part in its area landmark (`<header>` / `<footer>`); `block_template_part()` echoes the raw part with no wrapper;
     2. then print `<!DOCTYPE html>`, `<html <?php language_attributes(); ?>>`, `<head>`, `<meta charset="<?php bloginfo( 'charset' ); ?>">`, `wp_head()`, `</head>`, `body_class()`, `wp_body_open()`. In block themes the viewport meta and `<title>` come from `wp_head` callbacks that `locate_block_template()` adds (`_block_template_viewport_meta_tag`, `_block_template_render_title_tag`), which may not have run on a styleguide request. `page()` adds them itself when `has_action()` shows they're missing, so they're never printed twice;
-    3. a skip link and `<main id="main">` around `$body_html` (core only injects its skip link into real block templates);
-    4. the footer part, `wp_footer()`.
+    3. `<a class="skip-link screen-reader-text" href="#main">` (core only injects its skip link into real block templates), then `<div class="wp-site-blocks">` containing the header part, a `<main id="main">` built with `do_blocks()` as a `core/group` (`"tagName":"main","layout":{"type":"constrained"}`) around `$body_html`, and the footer part. `theme.json` root padding, `blockGap` and the align rules target `.wp-site-blocks` and the constrained layout, so without them demos don't match the front end;
+    4. `wp_footer()`.
+  - wp-styleguide sets page titles through `wp_title`, which block themes never call. `Blammo_Styleguide` filters `document_title_parts` on styleguide requests.
   - Rendering before `wp_head()` lets on-demand block CSS print in the head instead of late in the footer.
 - Pages may also pass literal core block markup through `do_blocks()`. The colour page reads `wp_get_global_settings( array( 'color', 'palette', 'theme' ) )`.
 - Every block gets a page, `styleguide/<name>.php`, including an empty/edge case.
 - **`styleguide_path` guard (kept permanently, even after the upstream fix):** `styleguide_path` is a public query var that reaches `locate_template()`. `Blammo_Styleguide` adds a `request` filter that:
-  1. removes every character outside `[a-z0-9/_-]`, which drops all dots;
+  1. lowercases the value, then removes every character outside `[a-z0-9/_-]`, which drops all dots;
   2. unsets the var if the result is empty or starts with `/`.
 
   It needs PHPUnit coverage for `../`, `%2e%2e/` and `/etc/passwd`. It loads whether or not the plugin is active.
