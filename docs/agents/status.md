@@ -17,7 +17,7 @@ Last updated: 2026-10-18 by `docs/block-theme-pivot`
 
 ## In flight / next up (in order)
 1. `feat/theme-scaffold`: build the block theme per `architecture.md` and ADR 0008, porting only the useful RH_ → Blammo_ classes. Requirements:
-   - a `style.css` header (Requires at least: 6.8), and `theme.json` v3 with palette, typography (self-hosted `fontFace`), spacing, layout and `templateParts` (header, footer); core default palettes and free-form values off
+   - a `style.css` header (Requires at least: 7.0: the documented skip-link behaviour is server-side only from 7.0, and blammo.local runs 7.1.3), and `theme.json` v3 with palette, typography (self-hosted `fontFace`), spacing, layout and `templateParts` (header, footer); core default palettes and free-form values off
    - `templates/` (at least index, single, page, archive, search, 404; one `<main>` each), `parts/header.html` and `parts/footer.html`, and patterns for all template text (`Slug: blammo/*`, category `blammo`)
    - `Blammo_Blocks`: manifest registration (no fatal if `build/` is missing), plus the block and pattern categories
    - `Blammo_Scripts_And_Styles`: handles from `build/*.asset.php`, `add_editor_style` for canvas CSS (in `action_after_setup_theme`), editor JS on `enqueue_block_editor_assets` only
@@ -29,7 +29,7 @@ Last updated: 2026-10-18 by `docs/block-theme-pivot`
 2. `chore/testing-ci`: wp-env, PHPUnit, Jest, Playwright + axe, GitHub Actions `ci.yml` and `deploy.yml`.
    - Deploy ships `build/` (including `render.php` files and `blocks-manifest.php`), `theme.json`, `templates/`, `parts/`, `patterns/`, `styles/`, `assets/` and the PHP. `src/` and `styleguide/` are dev-only.
    - CI runs `npm run build` before PHPUnit and e2e.
-   - `.wp-env.json` installs wp-styleguide from a pinned commit zip and sets `WP_DEVELOPMENT_MODE` to `'theme'`.
+   - `.wp-env.json` installs wp-styleguide from a pinned commit zip and sets `WP_DEVELOPMENT_MODE` to `'theme'`. Pin wp-env `core` to 7.0 or later.
    - `deploy.yml` stamps `style.css` `Version` on every build, because the theme pattern cache is keyed to it.
 3. `feat/mcp-adapter`:
    - `bin/wp-local` (refuses destructive subcommands and the `--exec`/`--require` global flags unless `WP_LOCAL_ALLOW_DESTRUCTIVE=1`, and limits `db export` to `~/blammo-backups/`), `.env.local.example`, `.mcp.json`

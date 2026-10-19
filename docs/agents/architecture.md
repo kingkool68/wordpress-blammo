@@ -4,7 +4,7 @@
 
 ## Directory map
 ```
-style.css                     # theme header (Name, Version, Requires at least: 6.8, Text Domain: blammo); no real CSS
+style.css                     # theme header (Name, Version, Requires at least: 7.0, Text Domain: blammo); no real CSS
 theme.json                    # schema v3; the single source of design tokens and global styles
 functions.php                 # loader only (see Boot sequence)
 functions/class-blammo-*.php  # one class per file; each self-bootstraps
@@ -154,6 +154,6 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
 ## Deploy
 - `deploy.yml` builds on pushes to `main` and commits the compiled theme to an orphan `build/main` branch, with dev files excluded (`.gitignore-build`). Production installs from `build/main`.
 - **Runtime files that must ship:** `style.css`, `theme.json`, `functions.php`, `functions/`, `templates/`, `parts/`, `patterns/`, `styles/`, `assets/` and **`build/`** (block `render.php` files and `blocks-manifest.php` live there). `src/`, `styleguide/`, `tests/`, `bin/` and tool configs are dev-only.
-- **`deploy.yml` stamps `style.css` `Version`** (build date + short SHA) on every `build/main` commit. Core caches parsed `patterns/*.php` in the `wp_theme_files_patterns-<hash>` site transient and only re-reads them when `Version` changes (or `wp_is_development_mode( 'theme' )`). Without the bump, new or edited patterns don't appear, and templates referencing them render nothing.
+- **`deploy.yml` stamps `style.css` `Version`** (build date + short SHA) on every `build/main` commit. Core caches parsed `patterns/*.php` in the `wp_theme_files_patterns-<hash>` site transient and only re-reads them when `Version` changes (or `wp_is_development_mode( 'theme' )`). The cache holds only header fields and the file path (bodies are `include`d fresh), so without the bump new pattern files and header changes (`Slug`, `Title`, `Categories`, `Inserter`, …) don't appear, and templates referencing a new slug render nothing. Body edits show up immediately.
 - A deploy doesn't touch site-editor customizations: a changed `templates/*.html` has no effect on a site where that template is customized until the customization is reset.
 - **The main checkout that blammo.local renders has no `build/`** until you run `npm run build` after pulling `main`. Without it no `blammo/*` blocks register: the front end silently renders nothing for them, and the editor shows them as unsupported.
