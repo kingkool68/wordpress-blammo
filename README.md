@@ -1,10 +1,11 @@
 # Blammo
 
-A WordPress theme built with an agentic workflow. It is based on the conventions of
+A block WordPress theme built with an agentic workflow. It is based on the conventions of
 [wordpress-rh-starter-theme](https://github.com/kingkool68/wordpress-rh-starter-theme).
 
-- Templating: [Sprig](https://github.com/kingkool68/sprig) (Twig), installed as an mu-plugin
-- Blocks: native blocks (`block.json`), rendered server-side through Twig
+- Theme type: full block (FSE) theme: `templates/`, `parts/`, `patterns/`, with `theme.json` design tokens
+- Blocks: native dynamic blocks (`block.json` + `render.php`)
+- Styleguide: the optional [wp-styleguide](https://github.com/kingkool68/wp-styleguide) dev plugin
 - Build: `@wordpress/scripts`
 - Tests: PHPUnit, Jest and Playwright running on `@wordpress/env`
 

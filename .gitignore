@@ -5,7 +5,7 @@
 # Build output (compiled by wp-scripts locally and in CI)
 /build/
 
-# Local tooling caches (Sprig mu-plugin for wp-env, etc.)
+# Local tooling caches
 /.cache/
 
 # Machine-specific config

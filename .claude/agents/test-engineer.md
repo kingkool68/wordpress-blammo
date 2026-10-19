@@ -15,6 +15,7 @@ You write tests for Blammo, following `docs/agents/testing.md` exactly. Read it,
   - set up through `requestUtils` (REST);
   - use role/label locators (`getByRole`, `getByLabel`), never brittle CSS selectors;
   - tag accessibility scans `@a11y` and fail on `serious`/`critical` axe violations.
+- Blocks register from `build/`, so run `npm run build` before PHP and e2e tests. Render blocks in PHPUnit with `render_block()` / `do_blocks()`, and give every block a test that renders two instances on one page.
 - For a bug fix, write the test first and confirm it **fails** without the fix.
 
 ## Run
