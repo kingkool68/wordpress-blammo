@@ -67,3 +67,5 @@ In the main checkout: `git pull && npm run build`, so blammo.local gets fresh `b
 
 ## Tooling must ignore worktrees
 Worktrees live inside the theme dir (`.claude/worktrees/`). Every tool config must exclude that path: `phpcs.xml.dist`, the ESLint and Stylelint ignore files, Jest `testPathIgnorePatterns` / `modulePathIgnorePatterns`, Playwright `testIgnore`, wp-env mounts, and deploy (`.gitignore-build`).
+
+**Anchor the exclusion to the project root.** A tool running *inside* a worktree sees paths like `…/blammo/.claude/worktrees/<slug>/functions/x.php`, so an unanchored `.claude/worktrees` pattern excludes every file and the check passes while checking nothing. In `phpcs.xml.dist`, top-level excludes use `type="relative"` with a `^` anchor. Sniff-level `<exclude-pattern>`s inside a `<rule>` can't be relative (PHPCS ignores the type there), so keep those specific (`/patterns/[^/]+\.php$`). After changing a tool's ignore config, run it from a worktree and confirm it still finds files (`vendor/bin/phpcs -v | grep 'files in queue'`).

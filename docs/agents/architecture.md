@@ -36,7 +36,7 @@ bin/                          # wp-local, helper scripts
 class Blammo_Blocks {
 	public static function get_instance() {
 		static $instance = null;
-		if ( null === $instance ) {
+		if ( $instance === null ) {
 			$instance = new static();
 			$instance->setup_actions();
 			$instance->setup_filters();
@@ -100,7 +100,7 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
 - `styles` in `theme.json` handles global element and core block styling first. SCSS is for what `theme.json` can't express: per-block styles, states, media queries, complex selectors.
 - SCSS reads tokens as `var(--wp--preset--color--<slug>)`, `var(--wp--preset--spacing--<slug>)`, `var(--wp--custom--<path>)`. Breakpoints stay SCSS variables (custom properties don't work in media queries).
 - `webpack.config.js` exports the wp-scripts default config, extended with the entries `blammo` and `editor`, merged with `...defaultConfig.entry()` (because `entry` is a function). Build with `--webpack-copy-php` (copies `render.php` into `build/blocks/<name>/`) and `--blocks-manifest` (writes `build/blocks-manifest.php`). Confirm both flags against the installed wp-scripts version; if the manifest flag is missing, register by globbing `build/blocks/*/block.json`.
-- `Blammo_Scripts_And_Styles` registers handles from `build/*.asset.php` (deps and version), with handle prefix `blammo-`.
+- `Blammo_Scripts_And_Styles` registers handles from `build/*.asset.php` (deps and version), with handle prefix `blammo-`. The front-end `blammo` script is only registered when `build/blammo.js` is non-empty (the entry may only import SCSS), and `blammo.css` uses `blammo-rtl.css` in RTL locales.
 
 ### What reaches what
 | Asset | Front end | Editor canvas (iframe) | Editor UI (outer frame) |
@@ -130,6 +130,7 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
     3. `<a class="skip-link screen-reader-text" href="#main">` (core only injects its skip link into real block templates), then `<div class="wp-site-blocks">` containing the header part, a `<main id="main">` built with `do_blocks()` as a `core/group` (`"tagName":"main","layout":{"type":"constrained"}`) around `$body_html`, and the footer part. `theme.json` root padding, `blockGap` and the align rules target `.wp-site-blocks` and the constrained layout, so without them demos don't match the front end;
     4. `wp_footer()`.
   - wp-styleguide sets page titles through `wp_title`, which block themes never call. `Blammo_Styleguide` filters `document_title_parts` on styleguide requests.
+  - Styleguide pages run at **global scope** (`template-loader.php` `include`s them), so their variables are prefixed `$blammo_`. Pages build their body with `ob_start()` and pass `ob_get_clean()` to `page()`; styleguide-only styling stays inline so it never ships in `build/blammo.css`.
   - Rendering before `wp_head()` lets on-demand block CSS print in the head instead of late in the footer.
 - Pages may also pass literal core block markup through `do_blocks()`. The colour page reads `wp_get_global_settings( array( 'color', 'palette', 'theme' ) )`.
 - Every block gets a page, `styleguide/<name>.php`, including an empty/edge case.
