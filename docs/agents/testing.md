@@ -25,6 +25,8 @@ Blocks register from `build/`, so run `npm run build` before PHP and e2e tests (
 - **Bug fix:** a test that fails before the fix.
 
 ## Conventions
+- Unit-suite stubs: WordPress functions live in `tests/phpunit/unit/bootstrap.php`, driven per test through `$GLOBALS['blammo_test_*']` (reset them in `setUp()`). Core **class** stubs (e.g. `WP_Error`) live in `tests/phpunit/stubs/` under core's names (PHPCS prefix rule lifted there). Only the unit bootstrap loads them, never the integration suite, where core already declares them.
+- Stubs are approximations: anything that depends on real core behaviour (kses, slashing, sanitizers) also needs an integration test.
 - Test class names are `Test_Blammo_<Thing>`, in files named `test-blammo-<thing>.php`. PHPCS covers `tests/` but doesn't require doc comments on test classes and methods.
 - Use factories (`self::factory()->post->create()`) and never rely on existing content.
 - E2E specs use the `requestUtils` REST helpers for setup, not UI clicks.

@@ -11,6 +11,7 @@ class Test_Blammo_Abilities extends TestCase {
 		$GLOBALS['blammo_test_abilities']        = array();
 		$GLOBALS['blammo_test_inserted_posts']   = array();
 		$GLOBALS['blammo_test_insert_result']    = 123;
+		$GLOBALS['blammo_test_post_status']      = null;
 		$GLOBALS['blammo_test_kses_calls']       = array();
 	}
 
@@ -139,6 +140,34 @@ class Test_Blammo_Abilities extends TestCase {
 		$this->assertSame( 'pending', $this->last_inserted_post()['post_status'] );
 	}
 
+	public function test_create_post_reports_stored_status() {
+		$GLOBALS['blammo_test_post_status'] = 'pending';
+		$result                             = Blammo_Abilities::create_post(
+			array(
+				'title'  => 'Live',
+				'status' => 'publish',
+			)
+		);
+		$this->assertSame( 'pending', $result['status'] );
+	}
+
+	public function test_create_post_rechecks_permission() {
+		$GLOBALS['blammo_test_environment_type'] = 'production';
+		$result                                  = Blammo_Abilities::create_post( array( 'title' => 'Hello' ) );
+		$this->assertSame( 'blammo_forbidden', $result->get_error_code() );
+
+		$GLOBALS['blammo_test_environment_type'] = 'local';
+		$GLOBALS['blammo_test_user_caps']        = array( 'publish_posts' );
+		$result                                  = Blammo_Abilities::create_post( array( 'title' => 'Hello' ) );
+		$this->assertSame( 'blammo_forbidden', $result->get_error_code() );
+		$this->assertSame( array(), $GLOBALS['blammo_test_inserted_posts'] );
+	}
+
+	public function test_title_keeps_percent_sequences_and_strips_tags() {
+		Blammo_Abilities::create_post( array( 'title' => "Prices up 12%because <b>demand</b>\nrose" ) );
+		$this->assertSame( 'Prices up 12%because demand rose', $this->last_inserted_post()['post_title'] );
+	}
+
 	public function test_create_post_rejects_unknown_status() {
 		$result = Blammo_Abilities::create_post(
 			array(
@@ -175,6 +204,9 @@ class Test_Blammo_Abilities extends TestCase {
 	}
 
 	public function test_backslashes_in_block_markup_survive_unslashing() {
+		// Only checks the wp_slash() / wp_insert_post() unslash pairing: the kses stub passes
+		// block comments through. Real kses re-serializes block attribute JSON, so the
+		// integration test must compare parse_blocks() attributes, not bytes.
 		$content = '<!-- wp:paragraph {"placeholder":"a \\u003c b \\"q\\""} --><p>C:\\path</p><!-- /wp:paragraph -->';
 		Blammo_Abilities::create_post(
 			array(

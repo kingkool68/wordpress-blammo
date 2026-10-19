@@ -74,6 +74,7 @@ $GLOBALS['blammo_test_ability_cats']     = array();
 $GLOBALS['blammo_test_abilities']        = array();
 $GLOBALS['blammo_test_inserted_posts']   = array();
 $GLOBALS['blammo_test_insert_result']    = 123;
+$GLOBALS['blammo_test_post_status']      = null;
 $GLOBALS['blammo_test_kses_calls']       = array();
 
 require_once dirname( __DIR__ ) . '/stubs/class-wp-error.php';
@@ -112,8 +113,10 @@ function wp_register_ability( $name, $args ) {
 	return true;
 }
 
-function sanitize_text_field( $str ) {
-	return trim( preg_replace( '/[\r\n\t ]+/', ' ', preg_replace( '/<[^>]*>/', '', (string) $str ) ) );
+function wp_strip_all_tags( $text, $remove_breaks = false ) {
+	$text = preg_replace( '@<(script|style)[^>]*?>.*?</\\1>@si', '', (string) $text );
+	$text = preg_replace( '/<[^>]*>/', '', $text );
+	return $remove_breaks ? preg_replace( '/[\r\n\t ]+/', ' ', $text ) : $text;
 }
 
 function wp_kses_post( $data ) {
@@ -128,6 +131,10 @@ function wp_slash( $value ) {
 function wp_insert_post( $postarr, $wp_error = false ) {
 	$GLOBALS['blammo_test_inserted_posts'][] = $postarr;
 	return $GLOBALS['blammo_test_insert_result'];
+}
+
+function get_post_status( $post_id ) {
+	return $GLOBALS['blammo_test_post_status'] ?? end( $GLOBALS['blammo_test_inserted_posts'] )['post_status'];
 }
 
 function get_permalink( $post_id ) {

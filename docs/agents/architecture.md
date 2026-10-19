@@ -18,7 +18,7 @@ src/scss/                     # blammo.scss (front end + canvas), editor.scss (c
 src/js/                       # front-end (blammo.js) and editor (editor.js) entries
 build/                        # wp-scripts output (gitignored): build/blocks/<name>/ (block.json, render.php, assets), build/blocks-manifest.php, build/blammo.*, build/editor.*
 styleguide/                   # component demo pages (styleguide/<page>.php), served at /styleguide/<page>/ by the optional wp-styleguide plugin
-tests/                        # phpunit/{unit,integration}, js, e2e
+tests/                        # phpunit/{unit,integration,stubs}, js, e2e
 bin/                          # wp-local, helper scripts
 ```
 - There are **no root PHP template files** (`index.php`, `page.php`, ...). Core serves every request through `wp-includes/template-canvas.php`.
@@ -73,6 +73,7 @@ class Blammo_Blocks {
 Blammo_Blocks::get_instance();
 ```
 - Hook callbacks are public instance methods named `action_<hook>` or `filter_<hook>`.
+- Abilities API `execute_callback` / `permission_callback` are public static methods referenced as `array( static::class, '<method>' )`. They aren't hook callbacks, and static keeps them unit-testable.
 - Helpers are `public static` and **return** strings (`Blammo_SVG::get_icon( 'close' )`), so `render.php` and patterns can call them.
 - Utility-only classes have `get_instance()` without the setup calls.
 - Block-specific logic too big for `render.php` goes in a `functions/` class, never in `render.php` (it can't declare functions; see blocks.md).

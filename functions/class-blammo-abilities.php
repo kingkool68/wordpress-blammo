@@ -148,10 +148,15 @@ class Blammo_Abilities {
 	/**
 	 * Execute blammo/create-post
 	 *
+	 * Re-checks can_manage() so a direct PHP call can't skip the ability's permission callback.
+	 *
 	 * @param array $input Input validated against get_create_post_input_schema()
 	 * @return array|WP_Error The created post's id, status and links, or an error
 	 */
 	public static function create_post( $input = array() ) {
+		if ( ! static::can_manage() ) {
+			return new WP_Error( 'blammo_forbidden', __( 'You are not allowed to run Blammo abilities here.', 'blammo' ) );
+		}
 		$defaults = array(
 			'title'   => '',
 			'content' => '',
@@ -160,7 +165,8 @@ class Blammo_Abilities {
 		);
 		$input    = wp_parse_args( $input, $defaults );
 
-		$title = sanitize_text_field( (string) $input['title'] );
+		// Not sanitize_text_field(): it strips %xx sequences ("12%because") and entity-encodes "<3".
+		$title = trim( wp_strip_all_tags( (string) $input['title'], true ) );
 		if ( $title === '' ) {
 			return new WP_Error( 'blammo_invalid_title', __( 'A title is required.', 'blammo' ) );
 		}
@@ -193,7 +199,7 @@ class Blammo_Abilities {
 
 		return array(
 			'id'        => (int) $post_id,
-			'status'    => $input['status'],
+			'status'    => (string) get_post_status( $post_id ),
 			'link'      => (string) get_permalink( $post_id ),
 			'edit_link' => get_edit_post_link( $post_id, 'raw' ),
 		);
