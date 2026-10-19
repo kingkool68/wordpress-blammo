@@ -50,6 +50,27 @@ class Test_Blammo_SVG extends TestCase {
 		);
 	}
 
+	/**
+	 * @dataProvider data_paths_outside_the_icons_directory
+	 */
+	public function test_get_svg_only_reads_icons( $path ) {
+		$this->assertSame( '', Blammo_SVG::get_svg( $path ) );
+	}
+
+	public function data_paths_outside_the_icons_directory() {
+		return array(
+			'non-svg theme file'     => array( BLAMMO_TESTS_THEME_DIR . '/composer.json' ),
+			'traversal out of icons' => array( BLAMMO_TESTS_THEME_DIR . '/assets/icons/../../style.css' ),
+			'svg-suffixed traversal' => array( BLAMMO_TESTS_THEME_DIR . '/assets/icons/../../functions.php/x.svg' ),
+			'absolute system file'   => array( '/etc/passwd' ),
+			'missing icon'           => array( BLAMMO_TESTS_THEME_DIR . '/assets/icons/nope.svg' ),
+		);
+	}
+
+	public function test_get_svg_reads_an_icon_by_path() {
+		$this->assertStringStartsWith( '<svg', Blammo_SVG::get_svg( BLAMMO_TESTS_THEME_DIR . '/assets/icons/close.svg' ) );
+	}
+
 	public function test_get_all_icons_lists_every_svg() {
 		$icons = Blammo_SVG::get_all_icons();
 		$files = glob( get_template_directory() . '/assets/icons/*.svg' );

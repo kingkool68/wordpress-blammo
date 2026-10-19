@@ -64,14 +64,23 @@ class Blammo_SVG {
 	/**
 	 * Read an SVG file and add class and accessibility attributes to its root element
 	 *
-	 * @param string $path Absolute path to an SVG file
+	 * Only .svg files inside assets/icons/ are read, so a caller passing an
+	 * author-controlled path can't print an arbitrary file.
+	 *
+	 * @param string $path Absolute path to an SVG file in assets/icons/
 	 * @param array  $args See get_icon()
-	 * @return string Inline SVG markup, or an empty string if the file doesn't exist
+	 * @return string Inline SVG markup, or an empty string if the file isn't an icon
 	 */
 	public static function get_svg( $path = '', $args = array() ) {
-		if ( ! is_string( $path ) || $path === '' || ! is_file( $path ) ) {
+		if ( ! is_string( $path ) || $path === '' || ! str_ends_with( $path, '.svg' ) ) {
 			return '';
 		}
+		$real_path  = realpath( $path );
+		$icons_path = realpath( static::get_icons_path() );
+		if ( $real_path === false || $icons_path === false || ! str_starts_with( $real_path, $icons_path . DIRECTORY_SEPARATOR ) || ! is_file( $real_path ) ) {
+			return '';
+		}
+		$path = $real_path;
 		$args = wp_parse_args(
 			$args,
 			array(
@@ -101,7 +110,7 @@ class Blammo_SVG {
 
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local theme file.
 		$svg = file_get_contents( $path );
-		if ( ! is_string( $svg ) ) {
+		if ( ! is_string( $svg ) || ! preg_match( '/<svg\b/', $svg ) ) {
 			return '';
 		}
 		return trim( (string) preg_replace( '/<svg\b/', '<svg' . $attributes, $svg, 1 ) );
