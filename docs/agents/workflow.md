@@ -3,7 +3,7 @@
 Every task follows this loop. The `ship-pr` skill automates steps 6–10 (it updates the docs before the reviews, so reviewers check them).
 
 ## Prerequisites (one-time, set up by the human)
-- **GitHub branch protection or a ruleset on `main`:** require a PR, block force pushes, and block deletion. This is the real control. `.claude/hooks/guard-git.py` and the permission rules in `.claude/settings.json` are defence in depth, and can't catch every shell trick.
+- **GitHub ruleset "Protect main" (enabled 2026-10-18):** it requires a PR (0 approvals, because the owner can't approve their own PRs), blocks force pushes and deletion, and has **no bypass actors**. Agents push with the owner's credentials, so an admin bypass would let them bypass it too. This is the real control. `.claude/hooks/guard-git.py` and the permission rules in `.claude/settings.json` are defence in depth, and can't catch every shell trick.
 - **The repo is public.** Anything committed, and any PR text, is published.
 
 ## 1. Orient
