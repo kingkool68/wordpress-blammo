@@ -21,9 +21,17 @@ Ok make sure the MCP adapter is working
 Add an ability to create a post
 ~~~~
 
+## Prompt 3 (2026-10-19T02:25:32Z)
+
+~~~~text
+Theme scaffolding is done. I have switched the theme to the vlammo theme
+~~~~
+
 ## Clarifications
 
 - **Q:** Where should the create-post ability live, given Blammo isn't active on blammo.local yet? (Theme, stacked on `feat/theme-scaffold` / Theme, wait / Local plugin now)
   **A:** Theme, stacked (Recommended)
 - **Q:** What post statuses may the ability create? (Draft only / Draft or pending / Any incl. publish)
   **A:** Any incl. publish
+- **Q:** feat/theme-scaffold isn't pushed, so a PR could only target main and include the scaffold commits. How should I open it? (Hold until scaffold PR / PR against main now / Don't push yet)
+  **A:** Hold until scaffold PR (Recommended). The scaffold then merged (#5), so this PR targets main.
