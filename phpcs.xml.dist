@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<ruleset name="Blammo">
+	<description>WordPress Coding Standards for the Blammo theme, with the exceptions in docs/agents/conventions.md.</description>
+
+	<file>.</file>
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+
+	<!--
+	Relative patterns match paths relative to this file. Agent worktrees live inside
+	the theme directory (.claude/worktrees/), so an absolute pattern would also exclude
+	every file when phpcs runs inside a worktree.
+	-->
+	<exclude-pattern type="relative">^\.claude/*</exclude-pattern>
+	<exclude-pattern type="relative">^build/*</exclude-pattern>
+	<exclude-pattern type="relative">^node_modules/*</exclude-pattern>
+	<exclude-pattern type="relative">^vendor/*</exclude-pattern>
+
+	<config name="testVersion" value="8.1-"/>
+	<config name="minimum_wp_version" value="7.0"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<rule ref="WordPress">
+		<!-- File doc comments are optional. -->
+		<exclude name="Squiz.Commenting.FileComment.Missing"/>
+		<exclude name="Squiz.Commenting.FileComment.MissingPackageTag"/>
+		<!-- Comments don't have to end in a full stop. -->
+		<exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
+		<exclude name="Squiz.Commenting.FunctionComment.ParamCommentFullStop"/>
+		<exclude name="Squiz.Commenting.FunctionComment.ThrowsNoFullStop"/>
+		<exclude name="Generic.Commenting.DocComment.LongNotCapital"/>
+		<!-- Slash-delimited hook names are allowed (blammo/svg/icons). -->
+		<exclude name="WordPress.NamingConventions.ValidHookName.UseUnderscores"/>
+		<!-- No Yoda conditions. -->
+		<exclude name="WordPress.PHP.YodaConditions"/>
+	</rule>
+
+	<!-- Ban Yoda conditions instead of requiring them. -->
+	<rule ref="Generic.ControlStructures.DisallowYodaConditions"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="blammo"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="blammo"/>
+			</property>
+		</properties>
+		<!--
+		Core includes these files inside a function (block render, pattern registry), so their variables aren't globals.
+		styleguide/ is NOT excluded: wp-styleguide pages are included from template-loader.php at global scope.
+		Sniff-level patterns match the absolute path (PHPCS ignores type="relative" here), so keep them unanchored.
+		-->
+		<exclude-pattern>/src/blocks/[^/]+/render\.php$</exclude-pattern>
+		<exclude-pattern>/patterns/[^/]+\.php$</exclude-pattern>
+	</rule>
+
+	<!-- Test method names describe the test; doc comments there are optional. -->
+	<rule ref="Squiz.Commenting.FunctionComment.Missing">
+		<exclude-pattern>/tests/phpunit/[^/]+/[^/]+\.php$</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Commenting.FunctionComment.MissingParamTag">
+		<exclude-pattern>/tests/phpunit/[^/]+/[^/]+\.php$</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Commenting.ClassComment.Missing">
+		<exclude-pattern>/tests/phpunit/[^/]+/[^/]+\.php$</exclude-pattern>
+	</rule>
+	<rule ref="Generic.Commenting.DocComment.MissingShort">
+		<exclude-pattern>/tests/phpunit/[^/]+/[^/]+\.php$</exclude-pattern>
+	</rule>
+	<!-- The unit bootstrap stubs WordPress functions under their real names and signatures. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound">
+		<exclude-pattern>/tests/phpunit/unit/bootstrap\.php$</exclude-pattern>
+	</rule>
+	<rule ref="Generic.CodeAnalysis.UnusedFunctionParameter">
+		<exclude-pattern>/tests/phpunit/unit/bootstrap\.php$</exclude-pattern>
+	</rule>
+
+	<!-- Tests follow PHPUnit naming, not WordPress file naming. -->
+	<rule ref="WordPress.Files.FileName">
+		<exclude-pattern>/tests/phpunit/[^/]+/[^/]+\.php$</exclude-pattern>
+	</rule>
+</ruleset>

@@ -1,0 +1,16 @@
+/*
+Theme Name: Blammo
+Theme URI: https://github.com/kingkool68/wordpress-blammo
+Author: Russell Heimlich
+Author URI: https://github.com/kingkool68
+Description: A full block (FSE) theme built with an agentic workflow, on the conventions of the RH starter theme.
+Requires at least: 7.0
+Tested up to: 7.1
+Requires PHP: 8.1
+Version: 0.1.0
+License: GNU General Public License v2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: blammo
+*/
+
+/* Styles live in theme.json and src/scss/ (compiled to build/). */

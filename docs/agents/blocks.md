@@ -54,7 +54,7 @@ if ( '' === trim( $headline ) ) {
 - `return` early to render nothing. Don't `echo` outside the markup and don't `exit`.
 - Queries: `WP_Query` with `no_found_rows => true`, and `wp_reset_postdata()` after any loop that calls `the_post()`.
 - Never `require` a `render.php` yourself, and never from `functions.php`.
-- `render.php` runs inside a closure, so its variables aren't globals. `phpcs.xml.dist` excludes `src/blocks/*/render.php`, `patterns/` and `styleguide/` from `WordPress.NamingConventions.PrefixAllGlobals`.
+- `render.php` runs inside a closure, so its variables aren't globals. `phpcs.xml.dist` excludes `src/blocks/*/render.php` and `patterns/` from `WordPress.NamingConventions.PrefixAllGlobals`. `styleguide/` is **not** excluded: wp-styleguide pages are `include`d from `template-loader.php` at global scope, so their variables are real globals and use the `$blammo_` prefix (an unprefixed `$pages` would clobber core's pagination global).
 
 ## Rendering outside a template
 - Styleguide pages: `Blammo_Styleguide::block( 'blammo/<name>', $attributes )` (wraps `render_block()`).

@@ -1,6 +1,6 @@
 # Testing
 
-> Status: the infrastructure lands in `chore/testing-ci`. Until then, these are the target rules.
+> Status: the PHP **unit** suite exists (`composer test:unit`; `npm run test:php` runs it until wp-env lands). wp-env, integration tests, Jest, Playwright and CI land in `chore/testing-ci`.
 
 All automated tests run against **`@wordpress/env`** (Docker), locally and in CI. Tests never touch blammo.local.
 
@@ -8,7 +8,7 @@ Blocks register from `build/`, so run `npm run build` before PHP and e2e tests (
 
 | Type | Location | Runner | Command |
 |---|---|---|---|
-| PHP unit (pure helpers) | `tests/phpunit/unit/` | PHPUnit | `npm run test:php` |
+| PHP unit (pure helpers) | `tests/phpunit/unit/` | PHPUnit 9.6, no WordPress: `bootstrap.php` stubs the few WP functions used and records `add_action`/`add_filter` calls in `$GLOBALS['blammo_test_hooks']` | `composer test:unit` (and `npm run test:php`) |
 | PHP integration (WP loaded) | `tests/phpunit/integration/` | PHPUnit + `WP_UnitTestCase` in wp-env `tests-cli` | `npm run test:php` |
 | JS unit | `tests/js/` or `*.test.js` beside source | Jest via `wp-scripts test-unit-js` | `npm run test:js` |
 | E2E + a11y | `tests/e2e/*.spec.js` | Playwright via `wp-scripts test-playwright`, with `@wordpress/e2e-test-utils-playwright` and `@axe-core/playwright` | `npm run test:e2e` |
@@ -25,7 +25,7 @@ Blocks register from `build/`, so run `npm run build` before PHP and e2e tests (
 - **Bug fix:** a test that fails before the fix.
 
 ## Conventions
-- Test class names are `Test_Blammo_<Thing>`, in files named `test-blammo-<thing>.php`.
+- Test class names are `Test_Blammo_<Thing>`, in files named `test-blammo-<thing>.php`. PHPCS covers `tests/` but doesn't require doc comments on test classes and methods.
 - Use factories (`self::factory()->post->create()`) and never rely on existing content.
 - E2E specs use the `requestUtils` REST helpers for setup, not UI clicks.
 - Every test runner config must ignore `.claude/worktrees/` (see workflow.md).
