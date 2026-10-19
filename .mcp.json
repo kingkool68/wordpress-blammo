@@ -1,0 +1,14 @@
+{
+	"mcpServers": {
+		"blammo-wp": {
+			"type": "stdio",
+			"command": "./bin/wp-local",
+			"args": [
+				"mcp-adapter",
+				"serve",
+				"--server=mcp-adapter-default-server",
+				"--user=claude"
+			]
+		}
+	}
+}

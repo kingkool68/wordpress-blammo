@@ -1,0 +1,348 @@
+#!/usr/bin/env bash
+#
+# Run WP-CLI against the blammo.local site in the Local app.
+#
+# Local's bundled wp-cli uses `#!/usr/bin/env php`, which resolves to Homebrew
+# PHP and can't reach Local's MySQL socket. This wrapper runs Local's own PHP
+# binary with Local's php.ini (PHPRC) and my.cnf (MYSQL_HOME).
+#
+# Machine-specific paths come from `.env.local` in the main checkout (copy
+# `.env.local.example`). A worktree's own `.env.local` is never read.
+#
+# Guard rails (see docs/agents/local-environment.md). The guard is defence in
+# depth; the real gate is Claude Code's permission prompts.
+# - The WP-CLI command must be the first argument.
+# - Commands that run or install code, or wipe data, and global flags that run
+#   code or retarget the command, are refused unless
+#   WP_LOCAL_ALLOW_DESTRUCTIVE=1.
+# - Requests for password hashes, reset keys and session tokens are rejected
+#   (best effort).
+# - `db export` only writes new files into ~/blammo-backups/.
+# - WP-CLI runs from `/`, so no wp-cli.yml in a checkout is loaded.
+#
+# Set WP_LOCAL_CHECK_ONLY=1 to run the guard and exit without calling WP-CLI
+# (used by tests/bin/test-wp-local.sh).
+
+set -euo pipefail
+
+die() {
+	echo "wp-local: $*" >&2
+	exit 1
+}
+
+refuse() {
+	echo "wp-local: refused: $*" >&2
+	echo "wp-local: a human must approve this; re-run with WP_LOCAL_ALLOW_DESTRUCTIVE=1 if they do." >&2
+	exit 2
+}
+
+backup_dir="$HOME/blammo-backups"
+
+# --- Guard -------------------------------------------------------------------
+
+# Requiring the command first means a space-separated flag value
+# (`--user admin eval ...`) can't be mistaken for the command.
+case "${1:-}" in
+	'') die "usage: bin/wp-local <command> [<subcommand>] [--flags]" ;;
+	-*) die "put the WP-CLI command first, before any flags (got $1)" ;;
+esac
+
+# Find the command words the way WP-CLI does: it drops every `--flag` before
+# resolving the command, so `db --quiet query` is still `db query`.
+positional=()
+for arg in "$@"; do
+	case "$arg" in
+		--*) ;;
+		*) positional+=( "$arg" ) ;;
+	esac
+done
+command_name="${positional[0]}"
+subcommand_name="${positional[1]:-}"
+third_name="${positional[2]:-}"
+
+# WP-CLI's built-in subcommand aliases.
+case "$subcommand_name" in
+	dump) subcommand_name="export" ;;
+	connect) subcommand_name="cli" ;;
+	upgrade) subcommand_name="update" ;;
+	uninstall) subcommand_name="delete" ;;
+	install-network) subcommand_name="multisite-convert" ;;
+esac
+
+# Best effort against printing secrets, override or not. WP-CLI resolves a
+# field name with or without its `user_` / `post_` prefix.
+for arg in "$@"; do
+	case "$arg" in
+		*user_pass* | *user_activation_key* | *session_tokens* | *_application_passwords*)
+			die "refusing to read password hashes, reset keys or session tokens"
+			;;
+		--field=* | --fields=*)
+			fields="${arg#*=},"
+			while [ -n "$fields" ]; do
+				field="${fields%%,*}"
+				fields="${fields#*,}"
+				# WP-CLI trims each field name, so compare trimmed.
+				field="${field#"${field%%[![:space:]]*}"}"
+				field="${field%"${field##*[![:space:]]}"}"
+				field="${field#user_}"
+				field="${field#post_}"
+				case "$field" in
+					pass | password | activation_key | token)
+						die "refusing to read password fields ($field)"
+						;;
+				esac
+			done
+			;;
+	esac
+done
+# has_arg <pattern>: true if one whole argument matches the glob pattern.
+has_arg() {
+	local pattern="$1" arg
+	shift
+	for arg in "$@"; do
+		# shellcheck disable=SC2254
+		case "$arg" in
+			$pattern) return 0 ;;
+		esac
+	done
+	return 1
+}
+
+# `user get`, `post get` and `user session list` print every field (password
+# hash, post password, session verifiers) unless --field/--fields narrows them.
+case "$command_name $subcommand_name $third_name" in
+	"user get "* | "post get "* | "user session list")
+		if ! has_arg '--field=?*' "$@" && ! has_arg '--fields=?*' "$@"; then
+			die "this command needs --field=... or --fields=..., since the full record includes secrets"
+		fi
+		;;
+esac
+if [ "$command_name" = "user" ] && [ "$subcommand_name" = "meta" ] && [ "$third_name" = "list" ]; then
+	if ! has_arg '--keys=?*' "$@"; then
+		die "user meta list needs --keys=..., since the full list includes session tokens"
+	fi
+fi
+
+# `db check|optimize|repair` pass every flag through to mysqlcheck, which can
+# load native client plugins (--plugin-dir, --default-auth).
+if [ "$command_name" = "db" ]; then
+	case "$subcommand_name" in
+		check | optimize | repair)
+			if has_arg '--*' "$@"; then
+				die "db $subcommand_name: flags are passed to mysqlcheck, so none are allowed"
+			fi
+			;;
+	esac
+fi
+
+if [ "${WP_LOCAL_ALLOW_DESTRUCTIVE:-}" != "1" ]; then
+	# WP-CLI aliases (@name) can retarget the command at another site.
+	case "$command_name" in
+		@*) refuse "WP-CLI aliases ($command_name)" ;;
+	esac
+
+	for arg in "$@"; do
+		case "$arg" in
+			--exec | --exec=* | --require | --require=* | --path | --path=* | \
+				--ssh | --ssh=* | --http | --http=* | --context | --context=* | \
+				--prompt | --prompt=*)
+				refuse "global flag ${arg%%=*}"
+				;;
+		esac
+	done
+
+	case "$command_name" in
+		eval | eval-file | shell | package | cli | config | scaffold | search-replace | server)
+			refuse "wp $command_name"
+			;;
+		db)
+			case "$subcommand_name" in
+				drop | reset | query | import | cli | clean | search)
+					refuse "wp db $subcommand_name"
+					;;
+			esac
+			;;
+		core)
+			case "$subcommand_name" in
+				update | download | install | multisite-convert | multisite-install)
+					refuse "wp core $subcommand_name"
+					;;
+			esac
+			;;
+		plugin | theme)
+			case "$subcommand_name" in
+				install | update | delete)
+					refuse "wp $command_name $subcommand_name"
+					;;
+			esac
+			;;
+		cron)
+			if [ "$subcommand_name" = "event" ] && [ "$third_name" = "run" ]; then
+				refuse "wp cron event run"
+			fi
+			;;
+		site)
+			case "$subcommand_name" in
+				empty | delete)
+					refuse "wp site $subcommand_name"
+					;;
+			esac
+			;;
+	esac
+fi
+
+# `db export` is limited to new files in ~/blammo-backups/, even when
+# destructive commands are allowed: it's the one write path agents run
+# unattended, and it must never clobber an earlier backup.
+if [ "$command_name" = "db" ] && [ "$subcommand_name" = "export" ]; then
+	case "${2:-}" in
+		export | dump) ;;
+		*) die "db export: put flags after the file path (bin/wp-local db export <file> [--flags])" ;;
+	esac
+	shift 2
+	export_file=""
+	for arg in "$@"; do
+		case "$arg" in
+			# WP-CLI splits these on commas and passes each piece to mysqldump
+			# as its own argument, so a value like `t,--init-command=...` would
+			# smuggle in mysqldump options. Table names only.
+			--tables=* | --exclude_tables=*)
+				case "${arg#*=}" in
+					'' | *[!A-Za-z0-9_\$,]*) die "db export: ${arg%%=*} takes table names only" ;;
+				esac
+				;;
+			# Other mysqldump flags are passed through and could redirect
+			# output (e.g. --result-file), so only allow a known-safe set.
+			--porcelain | --add-drop-table | --quiet) ;;
+			-*) die "db export: flag ${arg%%=*} isn't allowed" ;;
+			*)
+				[ -z "$export_file" ] || die "db export takes exactly one file path"
+				export_file="$arg"
+				;;
+		esac
+	done
+
+	case "$export_file" in
+		/*) ;;
+		*) die "db export needs an absolute path inside $backup_dir/" ;;
+	esac
+	case "$export_file" in
+		*/) die "db export needs a file name, not a directory" ;;
+	esac
+	# `x/..` through a symlinked x resolves physically outside the backup dir,
+	# so refuse . and .. components outright.
+	case "/$export_file/" in
+		*/./* | */../*) die "db export: no . or .. in the path" ;;
+	esac
+	export_name="$(basename -- "$export_file")"
+
+	(umask 077 && mkdir -p "$backup_dir")
+	export_dir="$(cd -P "$(dirname -- "$export_file")" 2>/dev/null && pwd -P)" \
+		|| die "db export: directory for $export_file doesn't exist"
+	real_backup_dir="$(cd -P "$backup_dir" && pwd -P)"
+	if [ "$export_dir" != "$real_backup_dir" ]; then
+		die "db export only writes into $backup_dir/ (got $export_file)"
+	fi
+	if [ -e "$export_file" ] || [ -L "$export_file" ]; then
+		die "db export: $export_file already exists; pick a new name"
+	fi
+	# Hand WP-CLI the resolved path, not the caller's string.
+	resolved_args=()
+	for arg in "$@"; do
+		if [ "$arg" = "$export_file" ]; then
+			resolved_args+=( "$real_backup_dir/$export_name" )
+		else
+			resolved_args+=( "$arg" )
+		fi
+	done
+	set -- db export "${resolved_args[@]}"
+fi
+
+if [ "${WP_LOCAL_CHECK_ONLY:-}" = "1" ]; then
+	exit 0
+fi
+
+# --- Environment -------------------------------------------------------------
+
+# Always the main checkout's .env.local, never a worktree's: a worktree file is
+# gitignored, invisible in diffs, and easy for an agent to plant.
+script_dir="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+common_dir="$(git -C "$script_dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
+	|| die "can't find the git checkout for $script_dir"
+env_file="$(dirname -- "$common_dir")/.env.local"
+[ -f "$env_file" ] \
+	|| die "missing $env_file; copy .env.local.example to .env.local in the main checkout and fill in the paths"
+
+LOCAL_SITE_ID=""
+LOCAL_PHP_BIN=""
+LOCAL_WP_CLI=""
+LOCAL_MYSQL_BIN=""
+WP_PATH=""
+
+# Parse KEY=VALUE lines rather than sourcing the file, so it can't run code.
+while IFS= read -r line || [ -n "$line" ]; do
+	case "$line" in
+		'' | '#'*) continue ;;
+	esac
+	key="${line%%=*}"
+	value="${line#*=}"
+	# Strip one layer of matching quotes.
+	case "$value" in
+		\"*\") value="${value#\"}"; value="${value%\"}" ;;
+		\'*\') value="${value#\'}"; value="${value%\'}" ;;
+	esac
+	# Expand a leading ~ or $HOME.
+	case "$value" in
+		'~/'*) value="$HOME/${value#\~/}" ;;
+		'$HOME/'*) value="$HOME/${value#\$HOME/}" ;;
+	esac
+	case "$key" in
+		LOCAL_SITE_ID) LOCAL_SITE_ID="$value" ;;
+		LOCAL_PHP_BIN) LOCAL_PHP_BIN="$value" ;;
+		LOCAL_WP_CLI) LOCAL_WP_CLI="$value" ;;
+		LOCAL_MYSQL_BIN) LOCAL_MYSQL_BIN="$value" ;;
+		WP_PATH) WP_PATH="$value" ;;
+		*) die "unknown key in $env_file: $key" ;;
+	esac
+done < "$env_file"
+
+for var in LOCAL_SITE_ID LOCAL_PHP_BIN LOCAL_WP_CLI WP_PATH; do
+	if [ -z "${!var}" ]; then
+		die "$var is not set in $env_file"
+	fi
+done
+
+local_run_dir="$HOME/Library/Application Support/Local/run/$LOCAL_SITE_ID"
+socket="$local_run_dir/mysql/mysqld.sock"
+
+[ -x "$LOCAL_PHP_BIN" ] || die "LOCAL_PHP_BIN is not executable: $LOCAL_PHP_BIN"
+[ -f "$LOCAL_WP_CLI" ] || die "LOCAL_WP_CLI not found: $LOCAL_WP_CLI"
+[ -f "$WP_PATH/wp-load.php" ] || die "WP_PATH has no wp-load.php: $WP_PATH"
+[ -S "$socket" ] || die "MySQL socket not found at $socket. Start blammo.local in the Local app."
+
+export PHPRC="$local_run_dir/conf/php"
+export MYSQL_HOME="$local_run_dir/conf/mysql"
+
+# Only Local's wp-cli config, which makes `wp db *` pass --defaults so
+# MYSQL_HOME is used. Drop any other WP-CLI settings from the caller's env.
+# PHP_INI_SCAN_DIR could add an auto_prepend_file; WP_CLI_*REQUIRE load PHP.
+unset WP_CLI_CONFIG_PATH WP_CLI_PACKAGES_DIR WP_CLI_PHP WP_CLI_PHP_ARGS WP_CLI_CUSTOM_SHELL \
+	WP_CLI_REQUIRE WP_CLI_EARLY_REQUIRE WP_CLI_SSH_PRE_CMD WP_CLI_STRICT_ARGS_MODE \
+	WP_CLI_CACHE_DIR PHP_INI_SCAN_DIR
+export PAGER=cat
+wp_cli_config="$(dirname -- "$LOCAL_WP_CLI")/config.yaml"
+if [ -f "$wp_cli_config" ]; then
+	export WP_CLI_CONFIG_PATH="$wp_cli_config"
+fi
+
+# `db export` / `db check` shell out to mysqldump / mysqlcheck.
+if [ -n "$LOCAL_MYSQL_BIN" ]; then
+	export PATH="$LOCAL_MYSQL_BIN:$PATH"
+fi
+
+# WP-CLI loads wp-cli.yml / wp-cli.local.yml from the cwd and its parents,
+# and those can set `require:`. Run from / so none are found. This means
+# file arguments must be absolute paths.
+cd /
+umask 077
+exec "$LOCAL_PHP_BIN" "$LOCAL_WP_CLI" --path="$WP_PATH" "$@"

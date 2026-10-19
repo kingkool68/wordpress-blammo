@@ -7,7 +7,7 @@ description: How to safely operate on the local blammo.local WordPress site — 
 
 Full background is in `docs/agents/local-environment.md`.
 
-> `bin/wp-local`, `.env.local.example` and `.mcp.json` land in `feat/mcp-adapter`. Until that's merged, don't modify the local site.
+> The theme has no abilities yet (`Blammo_Abilities` comes in `feat/abilities`, after `chore/testing-ci`), so MCP only exposes core and plugin abilities. Use `bin/wp-local` for the rest.
 
 ## Preconditions
 - The site must be running in the Local app. If the MySQL socket at `~/Library/Application Support/Local/run/$LOCAL_SITE_ID/mysql/mysqld.sock` is missing (`bin/wp-local` reports this), ask the user to start the site. Don't try to start MySQL yourself.
