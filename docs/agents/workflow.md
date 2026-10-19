@@ -39,7 +39,7 @@ Run `npm run lint && composer lint && npm run test:js && npm run test:php && npm
 Run `python3 .claude/skills/ship-pr/build-prompt-artifact.py <slug>` **before the reviews**, so reviewers can judge the change against the prompt. See `.agents/prompts/README.md`. **Redact secrets.**
 
 ## 8. Review (local, before the PR)
-This table is the single source of reviewer routing. Launch the matching reviewers **in parallel**, passing each one the worktree path and the prompt artifact path.
+This table is the single source of reviewer routing. Launch the matching reviewers **in parallel**, passing each one the worktree path and the prompt artifact path. Each agent's model comes from its frontmatter (see `CLAUDE.md`, Subagents).
 | Changed | Reviewers |
 |---|---|
 | Anything | `adversarial-reviewer` |
