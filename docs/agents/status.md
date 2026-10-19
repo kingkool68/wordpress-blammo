@@ -2,7 +2,7 @@
 
 _Every PR updates this file. Keep it short: it's the hand-off note for the next agent._
 
-Last updated: 2026-10-18 by `docs/block-theme-pivot`
+Last updated: 2026-10-18 by `feat/mcp-adapter`
 
 ## What exists
 - The repo is bootstrapped (`README.md`, `.gitignore`, `.editorconfig`), and `main` is the default branch.
@@ -13,6 +13,9 @@ Last updated: 2026-10-18 by `docs/block-theme-pivot`
   - `.claude/settings.json` (narrow allow list)
   - the PR template and `.agents/prompts/`
 - **Direction (ADR 0008):** Blammo is a full block (FSE) theme: `theme.json` tokens, `render.php` blocks, no Sprig/Twig. wp-styleguide stays as an optional dev plugin. ADRs 0001, 0003 and 0007 are superseded.
+- Local site tooling (`feat/mcp-adapter`, pulled ahead of the scaffold at the user's request):
+  - `bin/wp-local` with its guard and `tests/bin/test-wp-local.sh`, `.env.local.example`, `.mcp.json` (`blammo-wp`)
+  - on blammo.local: the `mcp-adapter` plugin 0.7.1 is active; backups live in `~/blammo-backups/`
 - GitHub ruleset "Protect main" is active: PRs required (0 approvals), no force pushes, no deletion, no bypass actors.
 
 ## In flight / next up (in order)
@@ -31,15 +34,18 @@ Last updated: 2026-10-18 by `docs/block-theme-pivot`
    - CI runs `npm run build` before PHPUnit and e2e.
    - `.wp-env.json` installs wp-styleguide from a pinned commit zip and sets `WP_DEVELOPMENT_MODE` to `'theme'`. Pin wp-env `core` to 7.0 or later.
    - `deploy.yml` stamps `style.css` `Version` on every build, because the theme pattern cache is keyed to it.
-3. `feat/mcp-adapter`:
-   - `bin/wp-local` (refuses destructive subcommands and the `--exec`/`--require` global flags unless `WP_LOCAL_ALLOW_DESTRUCTIVE=1`, and limits `db export` to `~/blammo-backups/`), `.env.local.example`, `.mcp.json`
-   - `Blammo_Abilities` + tests (safety rules in local-environment.md)
-   - local site setup: the mcp-adapter plugin, a `claude` user with a random password, theme activation
-4. GitHub issues for deferred starter classes: CDN, Slack, Share_Tools, Redirects, Breadcrumbs, Post_Type_Archives
+   - CI runs `tests/bin/*.sh` (ideally as `npm run test:bin`).
+3. Local site setup (human-approved, each step after a `bin/wp-local db export`; no PR):
+   - create the `claude` administrator with a random password nobody keeps and no application passwords (the `blammo-wp` MCP server can't start without it)
+   - set `WP_DEVELOPMENT_MODE` to `'theme'` in blammo.local's `wp-config.php`
+   - after `feat/theme-scaffold` merges: activate Blammo (see the activation gap below)
+4. `feat/abilities` (after `chore/testing-ci`, which it needs for PHPUnit): `Blammo_Abilities` + tests (safety rules in local-environment.md).
+5. GitHub issues for deferred starter classes: CDN, Slack, Share_Tools, Redirects, Breadcrumbs, Post_Type_Archives
 
 ## Known gaps
 - There's no theme code yet, so the build, lint and test commands in `CLAUDE.md` don't work yet.
-- `bin/wp-local`, `.env.local.example` and `.mcp.json` don't exist yet. Don't modify blammo.local until `feat/mcp-adapter` is merged.
+- No theme abilities yet, so MCP only exposes core and plugin abilities.
+- `bin/wp-local`'s guard is defence in depth. Edits to `bin/wp-local` and `.env.local` aren't behind `ask` in `.claude/settings.json` yet, so an agent could edit the guard in a worktree and then run a pre-approved `bin/wp-local` prefix. Adding those `ask` rules is the human's call.
 - `.claude/hooks/lint-php.sh` falls back to `php -l` only until `vendor/bin/phpcs` exists.
 - **wp-styleguide upstream:** the path-traversal, redirect, rewrite-anchor and title-injection fixes in [kingkool68/wp-styleguide#1](https://github.com/kingkool68/wp-styleguide/pull/1) merged 2026-10-19 (`1664c7e`). Pin wp-styleguide to that commit or later. Blammo keeps its own `styleguide_path` guard permanently.
 - Activating Blammo on blammo.local replaces classic menus, widgets and Customizer settings. Site-editor customizations are stored in the DB and override theme files.
