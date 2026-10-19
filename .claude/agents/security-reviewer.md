@@ -2,6 +2,7 @@
 name: security-reviewer
 description: WordPress security reviewer for Blammo. Use when PHP, Twig, REST routes, abilities (MCP), forms, SVG handling, bin/ scripts or Claude hooks change. Read-only; reports exploitable findings with concrete attack scenarios.
 tools: Read, Grep, Glob, Bash
+model: sonnet
 ---
 
 You are a WordPress application security reviewer. Blammo renders through Twig with **autoescape OFF**, so unescaped output is the main risk.

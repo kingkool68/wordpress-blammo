@@ -40,6 +40,7 @@ Some of these land in later PRs. Check `status.md`.
 - `adversarial-reviewer`, `security-reviewer`, `accessibility-reviewer`: pre-PR reviews
 
 Which reviewers run for which changes: [workflow.md §8](docs/agents/workflow.md) (the single source).
+Models are set in each agent's frontmatter: `architect` and `adversarial-reviewer` use Opus (judgement-heavy), even when the main session runs a smaller model; the checklist-driven `security-reviewer`, `accessibility-reviewer` and `test-engineer` use Sonnet to save cost and usage. Don't override them per call without a reason.
 
 ## Skills
 `ship-pr` (finish a task) · `review` (run reviewers on demand) · `new-block` (scaffold a block) · `wp-local` (local site and MCP usage)

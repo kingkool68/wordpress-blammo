@@ -2,13 +2,13 @@
 
 _Every PR updates this file. Keep it short: it's the hand-off note for the next agent._
 
-Last updated: 2026-10-18 by `chore/agent-infrastructure`
+Last updated: 2026-10-18 by `chore/agent-models`
 
 ## What exists
 - The repo is bootstrapped (`README.md`, `.gitignore`, `.editorconfig`), and `main` is the default branch.
 - Agent infrastructure is in place:
   - `CLAUDE.md` and `docs/agents/*` (docs and ADRs 0001–0007)
-  - `.claude/agents` (5 subagents) and `.claude/skills` (ship-pr, review, new-block, wp-local)
+  - `.claude/agents` (5 subagents; Opus for architect and adversarial-reviewer, Sonnet for security, accessibility and test-engineer) and `.claude/skills` (ship-pr, review, new-block, wp-local)
   - `.claude/hooks`: prompt capture, git guard, PHP lint
   - `.claude/settings.json` (narrow allow list)
   - the PR template and `.agents/prompts/`
