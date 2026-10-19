@@ -1,0 +1,18 @@
+@use "sass:map";
+
+// Breakpoints stay in SCSS: custom properties don't work in media queries.
+// Values match core's block editor breakpoints.
+$breakpoints: (
+	small: 600px,
+	medium: 782px,
+	large: 1080px,
+);
+
+/// Min-width media query for a named breakpoint.
+/// @param {String} $name - small, medium or large.
+@mixin from($name) {
+
+	@media (min-width: map.get($breakpoints, $name)) {
+		@content;
+	}
+}

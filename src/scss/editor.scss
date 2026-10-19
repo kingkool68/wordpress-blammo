@@ -1,0 +1,8 @@
+// Editor canvas only (loaded with add_editor_style, scoped to .editor-styles-wrapper).
+// Keep this for editing affordances; real styles belong in theme.json or blammo.scss.
+
+// Show where empty template parts sit while editing templates.
+.wp-block-template-part:empty {
+	min-height: 2rem;
+	outline: 1px dashed var(--wp--preset--color--border);
+}

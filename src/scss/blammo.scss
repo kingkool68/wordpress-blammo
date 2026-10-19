@@ -1,0 +1,45 @@
+// Front end and editor canvas (via add_editor_style). Tokens come from theme.json:
+// read them as var(--wp--preset--*) / var(--wp--custom--*), never redefine them here.
+@use "base/functions" as *;
+@use "base/mixins" as *;
+
+// Styleguide pages print their own skip link (core only injects one into block templates).
+.skip-link.screen-reader-text {
+
+	@include visually-hidden;
+
+	&:focus {
+
+		@include visually-shown;
+		background-color: var(--wp--preset--color--base);
+		color: var(--wp--preset--color--contrast);
+		left: rem(8);
+		outline: 2px solid var(--wp--preset--color--contrast);
+		outline-offset: 2px;
+		padding: rem(12) rem(16);
+		text-decoration: underline;
+		top: rem(8);
+		z-index: 100000;
+	}
+}
+
+// Inline SVGs from Blammo_SVG::get_icon() scale with the text and inherit its colour.
+.icon {
+	display: inline-block;
+	fill: currentcolor;
+	height: 1em;
+	vertical-align: middle;
+	width: 1em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		scroll-behavior: auto !important;
+		transition-duration: 0.01ms !important;
+	}
+}

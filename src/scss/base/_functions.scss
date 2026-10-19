@@ -1,0 +1,30 @@
+@use "sass:math";
+
+$browser-context: 16;
+
+/// Convert pixels to rem.
+/// @param {Number} $pixels - Unitless or px value.
+@function rem($pixels) {
+
+	@if (math.is-unitless($pixels)) {
+		$pixels: $pixels * 1px;
+	}
+
+	@return math.div($pixels, $browser-context * 1px) * 1rem;
+}
+
+/// Convert pixels to em relative to a context.
+/// @param {Number} $pixels - Unitless or px value.
+/// @param {Number} $context - Unitless or px context size.
+@function em($pixels, $context: $browser-context) {
+
+	@if (math.is-unitless($pixels)) {
+		$pixels: $pixels * 1px;
+	}
+
+	@if (math.is-unitless($context)) {
+		$context: $context * 1px;
+	}
+
+	@return math.div($pixels, $context) * 1em;
+}

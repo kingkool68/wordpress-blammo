@@ -1,0 +1,21 @@
+/// Visually hide an element but keep it available to assistive technology.
+@mixin visually-hidden {
+	border: 0;
+	clip-path: inset(50%);
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute !important;
+	width: 1px;
+	overflow-wrap: normal !important;
+}
+
+/// Undo visually-hidden, e.g. for a focused skip link.
+@mixin visually-shown {
+	clip-path: none;
+	height: auto;
+	margin: 0;
+	overflow: visible;
+	width: auto;
+}
