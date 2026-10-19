@@ -15,7 +15,8 @@
 # - Commands that run or install code, or wipe data, and global flags that run
 #   code or retarget the command, are refused unless
 #   WP_LOCAL_ALLOW_DESTRUCTIVE=1.
-# - Password hashes, reset keys and session tokens are never printed.
+# - Requests for password hashes, reset keys and session tokens are rejected
+#   (best effort).
 # - `db export` only writes new files into ~/blammo-backups/.
 # - WP-CLI runs from `/`, so no wp-cli.yml in a checkout is loaded.
 #
@@ -41,24 +42,61 @@ backup_dir="$HOME/blammo-backups"
 
 # Requiring the command first means a space-separated flag value
 # (`--user admin eval ...`) can't be mistaken for the command.
-command_name="${1:-}"
-subcommand_name="${2:-}"
-case "$command_name" in
+case "${1:-}" in
 	'') die "usage: bin/wp-local <command> [<subcommand>] [--flags]" ;;
-	-*) die "put the WP-CLI command first, before any flags (got $command_name)" ;;
-esac
-case "$subcommand_name" in
-	-*) subcommand_name="" ;;
+	-*) die "put the WP-CLI command first, before any flags (got $1)" ;;
 esac
 
-# Secrets are never printed, override or not.
+# Find the command words the way WP-CLI does: it drops every `--flag` before
+# resolving the command, so `db --quiet query` is still `db query`.
+positional=()
+for arg in "$@"; do
+	case "$arg" in
+		--*) ;;
+		*) positional+=( "$arg" ) ;;
+	esac
+done
+command_name="${positional[0]}"
+subcommand_name="${positional[1]:-}"
+third_name="${positional[2]:-}"
+
+# WP-CLI's built-in subcommand aliases.
+case "$subcommand_name" in
+	dump) subcommand_name="export" ;;
+	connect) subcommand_name="cli" ;;
+	upgrade) subcommand_name="update" ;;
+	uninstall) subcommand_name="delete" ;;
+esac
+
+# Best effort against printing secrets, override or not. WP-CLI resolves a
+# field name with or without its `user_` / `post_` prefix.
 for arg in "$@"; do
 	case "$arg" in
 		*user_pass* | *user_activation_key* | *session_tokens*)
 			die "refusing to read password hashes, reset keys or session tokens"
 			;;
+		--field=* | --fields=*)
+			fields="${arg#*=},"
+			while [ -n "$fields" ]; do
+				field="${fields%%,*}"
+				fields="${fields#*,}"
+				field="${field#user_}"
+				field="${field#post_}"
+				case "$field" in
+					pass | password | activation_key)
+						die "refusing to read password fields ($field)"
+						;;
+				esac
+			done
+			;;
 	esac
 done
+if [ "$command_name" = "user" ] && [ "$subcommand_name" = "meta" ] && [ "$third_name" = "list" ]; then
+	case " $* " in
+		*" --keys="*) ;;
+		*) die "user meta list needs --keys=..., since the full list includes session tokens" ;;
+	esac
+fi
 
 if [ "${WP_LOCAL_ALLOW_DESTRUCTIVE:-}" != "1" ]; then
 	# WP-CLI aliases (@name) can retarget the command at another site.
@@ -81,8 +119,15 @@ if [ "${WP_LOCAL_ALLOW_DESTRUCTIVE:-}" != "1" ]; then
 			;;
 		db)
 			case "$subcommand_name" in
-				drop | reset | query | import | cli | clean)
+				drop | reset | query | import | cli | clean | search)
 					refuse "wp db $subcommand_name"
+					;;
+			esac
+			;;
+		core)
+			case "$subcommand_name" in
+				update | download | install | multisite-convert | multisite-install)
+					refuse "wp core $subcommand_name"
 					;;
 			esac
 			;;
@@ -94,7 +139,7 @@ if [ "${WP_LOCAL_ALLOW_DESTRUCTIVE:-}" != "1" ]; then
 			esac
 			;;
 		cron)
-			if [ "$subcommand_name" = "event" ] && [ "${3:-}" = "run" ]; then
+			if [ "$subcommand_name" = "event" ] && [ "$third_name" = "run" ]; then
 				refuse "wp cron event run"
 			fi
 			;;
@@ -112,13 +157,25 @@ fi
 # destructive commands are allowed: it's the one write path agents run
 # unattended, and it must never clobber an earlier backup.
 if [ "$command_name" = "db" ] && [ "$subcommand_name" = "export" ]; then
+	case "${2:-}" in
+		export | dump) ;;
+		*) die "db export: put flags after the file path (bin/wp-local db export <file> [--flags])" ;;
+	esac
 	shift 2
 	export_file=""
 	for arg in "$@"; do
 		case "$arg" in
-			# mysqldump flags are passed through by WP-CLI and could redirect
+			# WP-CLI splits these on commas and passes each piece to mysqldump
+			# as its own argument, so a value like `t,--init-command=...` would
+			# smuggle in mysqldump options. Table names only.
+			--tables=* | --exclude_tables=*)
+				case "${arg#*=}" in
+					'' | *[!A-Za-z0-9_\$,]*) die "db export: ${arg%%=*} takes table names only" ;;
+				esac
+				;;
+			# Other mysqldump flags are passed through and could redirect
 			# output (e.g. --result-file), so only allow a known-safe set.
-			--tables=* | --exclude_tables=* | --porcelain | --add-drop-table | --quiet) ;;
+			--porcelain | --add-drop-table | --quiet) ;;
 			-*) die "db export: flag ${arg%%=*} isn't allowed" ;;
 			*)
 				[ -z "$export_file" ] || die "db export takes exactly one file path"
@@ -231,7 +288,8 @@ if [ -n "$LOCAL_MYSQL_BIN" ]; then
 fi
 
 # WP-CLI loads wp-cli.yml / wp-cli.local.yml from the cwd and its parents,
-# and those can set `require:`. Run from / so none are found.
+# and those can set `require:`. Run from / so none are found. This means
+# file arguments must be absolute paths.
 cd /
 umask 077
 exec "$LOCAL_PHP_BIN" "$LOCAL_WP_CLI" --path="$WP_PATH" "$@"

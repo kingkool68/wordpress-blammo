@@ -75,7 +75,29 @@ expect rejected "space-form flag value before command" -- --user admin eval x
 expect rejected "space-form flag before db export" -- --user x db export /tmp/f
 expect rejected "no command" --
 
-# Secrets are never printed, even with the override.
+# Flags before the subcommand and built-in aliases don't hide it.
+expect refused "flag before db subcommand" -- db --quiet query 'DROP TABLE wp_users'
+expect refused "flag before plugin subcommand" -- plugin --quiet install https://example.com/x.zip
+expect refused "flag before site subcommand" -- site --yes empty
+expect refused "flag before cron run" -- cron event --due-now run
+expect refused "db connect (alias of cli)" -- db connect
+expect refused "plugin upgrade (alias of update)" -- plugin upgrade --all
+expect refused "theme uninstall (alias of delete)" -- theme uninstall x
+expect refused "core update from a zip" -- core update https://example.com/x.zip
+expect refused "core upgrade" -- core upgrade
+expect refused "db search" -- db search '$wp$' --all-tables
+expect rejected "db dump elsewhere (alias of export)" -- db dump /tmp/x.sql
+expect rejected "flag before db export" -- db --porcelain export /tmp/x.sql
+expect rejected "flag before db dump into backups" -- db --porcelain dump "$backups/x.sql"
+expect allowed "db dump into backups" -- db dump "$backups/dump.sql"
+
+# Secrets are rejected, even with the override.
+expect rejected "unprefixed pass field" -- user list --fields=ID,pass
+expect rejected "unprefixed activation_key field" -- user get 1 --field=activation_key
+expect rejected "post password field" -- post list --fields=ID,password
+expect rejected "user meta list without --keys" -- user meta list 1
+expect allowed "user meta list with --keys" -- user meta list 1 --keys=nickname
+expect allowed "user list with safe fields" -- user list --fields=ID,user_login,roles
 expect rejected "user_pass field" -- user list --fields=ID,user_pass
 expect rejected "user_activation_key field" -- user get 1 --field=user_activation_key
 expect rejected "session_tokens meta" -- user meta get 1 session_tokens
@@ -108,6 +130,10 @@ expect rejected "db export over an existing backup" -- db export "$backups/exist
 expect rejected "db export onto a symlink" -- db export "$backups/symlink.sql"
 expect rejected "db export to a directory" -- db export "$backups/"
 expect rejected "db export with --result-file" -- db export "$backups/blammo.sql" --result-file=/tmp/x.sql
+expect rejected "db export --tables smuggling a flag" -- db export "$backups/blammo.sql" '--tables=wp_posts,--init-command=DROP TABLE wp_users'
+expect rejected "db export --tables=--tab" -- db export "$backups/blammo.sql" --tables=--tab=/tmp
+expect rejected "db export --exclude_tables smuggling a flag" -- db export "$backups/blammo.sql" --exclude_tables=x,--plugin-dir=/tmp
+expect rejected "db export empty --tables" -- db export "$backups/blammo.sql" --tables=
 expect rejected "db export with two paths" -- db export "$backups/a.sql" /tmp/b.sql
 ALLOW=1 expect rejected "db export elsewhere, even with override" -- db export /tmp/blammo.sql
 
