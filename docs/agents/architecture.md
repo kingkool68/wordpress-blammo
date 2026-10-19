@@ -1,42 +1,39 @@
 # Architecture
 
-> Status: this describes the **target** architecture. The scaffold lands in `feat/theme-scaffold`. See `status.md`.
+> Status: this describes the **target** architecture. The scaffold lands in `feat/theme-scaffold`. See `status.md`. Blammo is a full block (FSE) theme (ADR 0008).
 
 ## Directory map
 ```
+style.css                     # theme header (Name, Version, Requires at least: 6.8, Text Domain: blammo); no real CSS
+theme.json                    # schema v3; the single source of design tokens and global styles
 functions.php                 # loader only (see Boot sequence)
 functions/class-blammo-*.php  # one class per file; each self-bootstraps
-src/blocks/<name>/            # one native block per dir (see blocks.md); wp-scripts auto-discovers block.json here
-src/scss/{base,components}/   # theme styles; blammo.scss is the entry
-src/js/                       # theme front-end (blammo.js) and editor (editor.js) entries
-twig/                         # page-level Twig templates (base.twig is the HTML shell)
-styleguide/                   # component demo pages (styleguide/<page>.php), served at /styleguide/<page>/ by the wp-styleguide mu-plugin
-templates/fallback.php        # plain-PHP template used when Sprig is unavailable
-build/                        # wp-scripts output (gitignored): build/blocks/<name>/, build/blammo.*, build/editor.*
+templates/*.html              # block templates (template hierarchy); templates/index.html makes this a block theme
+parts/*.html                  # template parts (header.html, footer.html, ...); areas declared in theme.json templateParts
+patterns/*.php                # block patterns, auto-registered from file headers (Slug: blammo/<name>)
+styles/*.json                 # optional style variations
+assets/{fonts,images}/        # static runtime assets (fonts referenced by theme.json fontFace)
+src/blocks/<name>/            # one dynamic block per dir (see blocks.md); wp-scripts auto-discovers block.json here
+src/scss/                     # blammo.scss (front end + canvas), editor.scss (canvas-only tweaks); base/ holds mixins, functions, breakpoints
+src/js/                       # front-end (blammo.js) and editor (editor.js) entries
+build/                        # wp-scripts output (gitignored): build/blocks/<name>/ (block.json, render.php, assets), build/blocks-manifest.php, build/blammo.*, build/editor.*
+styleguide/                   # component demo pages (styleguide/<page>.php), served at /styleguide/<page>/ by the optional wp-styleguide plugin
 tests/                        # phpunit/{unit,integration}, js, e2e
-bin/                          # wp-local, install-mu-plugins, helper scripts
-*.php (root)                  # WP template hierarchy files: build $context, call Sprig::out()
+bin/                          # wp-local, helper scripts
 ```
+- There are **no root PHP template files** (`index.php`, `page.php`, ...). Core serves every request through `wp-includes/template-canvas.php`.
+- `src/` is build input only. Nothing under it is loaded at runtime.
 
 ## Boot sequence (`functions.php`)
-1. If `vendor/autoload.php` exists, require it. It holds dev tooling only; the theme has no runtime composer deps.
-2. Require `functions/class-blammo-dependencies.php`. If `Blammo_Dependencies::is_sprig_ready()` is false, **return now**. That class then:
-   - shows an admin notice;
-   - filters `template_include` at priority `PHP_INT_MAX` to `templates/fallback.php`, so it also wins over wp-styleguide's routing;
-   - loads no other classes or blocks, so nothing can call `Sprig::` and fatal.
-   `is_sprig_ready()` checks both `class_exists( 'Sprig' )` and `class_exists( '\Twig\Environment' )`. Sprig's loader can succeed on any autoloader even when its Twig vendor dir is missing.
-3. `require_once` an explicit list of `functions/class-blammo-*.php`:
+1. `require_once` an explicit list of `functions/class-blammo-*.php`:
+   - `class-blammo-blocks.php`, `class-blammo-scripts-and-styles.php`, `class-blammo-styleguide.php`, `class-blammo-svg.php`;
    - `class-blammo-staging.php` only when `wp_get_environment_type() !== 'production'`;
    - `class-blammo-abilities.php` only when it is `local`.
-4. Recursively require `src/blocks/**/*.php`.
-5. Register Sprig filters:
-   - `sprig/roots` adds `styleguide/` and every `src/blocks/*/` dir;
-   - `sprig/twig/filters` adds `sanitize_title` and **`wp_kses_post`**;
-   - `sprig/twig/functions` adds `get_language_attributes`.
+2. That's all. No composer autoload (the theme has no runtime composer deps), and **never require anything under `src/blocks/`**: `render.php` files print output and are only loaded by core during a block render.
 
 ## Class pattern
 ```php
-class Blammo_Example {
+class Blammo_Blocks {
 	public static function get_instance() {
 		static $instance = null;
 		if ( null === $instance ) {
@@ -52,88 +49,109 @@ class Blammo_Example {
 	}
 
 	public function setup_filters() {
-		add_filter( 'body_class', array( $this, 'filter_body_class' ) );
+		add_filter( 'block_categories_all', array( $this, 'filter_block_categories_all' ) );
 	}
 
-	public function action_init() {}
+	public function action_init() {
+		register_block_pattern_category( 'blammo', array( 'label' => __( 'Blammo', 'blammo' ) ) );
 
-	public function filter_body_class( $classes = array() ) {
-		return $classes;
+		$manifest = get_template_directory() . '/build/blocks-manifest.php';
+		if ( ! file_exists( $manifest ) ) {
+			return; // build/ missing: no blocks, no fatal.
+		}
+		wp_register_block_types_from_metadata_collection( get_template_directory() . '/build/blocks', $manifest );
 	}
 
-	public static function render( $args = array() ) {
-		$defaults = array();
-		$context  = wp_parse_args( $args, $defaults );
-		return Sprig::render( 'example.twig', $context );
+	public function filter_block_categories_all( $categories = array() ) {
+		$categories[] = array(
+			'slug'  => 'blammo',
+			'title' => __( 'Blammo', 'blammo' ),
+		);
+		return $categories;
 	}
 }
-Blammo_Example::get_instance();
+Blammo_Blocks::get_instance();
 ```
 - Hook callbacks are public instance methods named `action_<hook>` or `filter_<hook>`.
-- Render and helper methods are `public static`, called as `Blammo_SVG::get_icon( 'close' )`.
+- Helpers are `public static` and **return** strings (`Blammo_SVG::get_icon( 'close' )`), so `render.php` and patterns can call them.
 - Utility-only classes have `get_instance()` without the setup calls.
+- Block-specific logic too big for `render.php` goes in a `functions/` class, never in `render.php` (it can't declare functions; see blocks.md).
 
 ## Render flow
 ```
-WP template hierarchy → page.php
-  → builds $context (titles, content, Sprig::do_action() captures for hook output)
-  → Sprig::out( 'page.twig', $context )
-      → page.twig {% extends 'base.twig' %} → wp_head(), body_class(), get_header(), get_footer()
+request → template hierarchy (page-{slug} → page-{id} → page → singular → index)
+  → locate_block_template(): DB-customized wp_template post, else templates/<slug>.html
+  → template-canvas.php
+      → get_the_block_template_html(): do_blocks( template markup )      ← runs BEFORE wp_head()
+          → core/template-part → parts/header.html (or its DB override) → <header>
+          → core/post-content, core/query, ... (core render callbacks)
+          → core/pattern → patterns/<name>.php
+          → blammo/<name> → build/blocks/<name>/render.php ($attributes, $content, $block)
+          → skip link inserted before the first <main>
+      → <html language_attributes()> … wp_head() … body_class() … wp_body_open() … template HTML … wp_footer()
 ```
-- PHP owns the data and Twig only renders it, so keep logic out of Twig.
-- Components and blocks expose `static render( $args )` and return a string.
-- Templates may short-circuit with filters such as `blammo/header/show_header`.
+- Templates and parts are static block markup: no PHP, no translatable strings. Put strings in patterns and dynamic data in blocks.
+- Because blocks render before `wp_head()`, block styles enqueued during render print in the head.
+- **Database overrides win.** Once a template, part or global style is edited in the site editor, its `wp_template` / `wp_template_part` / `wp_global_styles` post is used instead of the theme file on that site.
+- Variants (e.g. no page title) are custom templates declared in `theme.json` `customTemplates`, not filters.
 
-## Sprig API and Twig details
-- `Sprig::render( $tpl, $ctx )` returns a string, and `Sprig::out()` echoes it.
-- `Sprig::do_action( $hook )` captures a hook's output as a string.
-- **Sprig builds Twig on `init` priority 10.** Calling `Sprig::render()` earlier fatals, so never render in `after_setup_theme` or `init` < 10.
-- **Search paths, in order:** the theme root, `views/`, `twig/` (Sprig's `sprig/theme_dirs` default), then the `sprig/roots` additions (`styleguide/`, then each block dir).
-  - Template names share **one flat namespace**, and the first match wins.
-  - So block templates are named `<name>-block.twig`, and every template name must be unique across all of these dirs. A block template named `pagination.twig` would silently render `twig/pagination.twig`.
-- **Autoescape is OFF** (ADR 0007). The available escaping filters are:
-  - registered by Sprig: `esc_html`, `esc_attr`, `esc_url`, `esc_js`, `esc_textarea`, `tag_escape`, `sanitize_html_class`, `sanitize_email`, `antispambot`, `absint`, `wptexturize`;
-  - registered by the theme: `wp_kses_post`, `sanitize_title`.
-  Any other WP function used as a filter must be registered first, or Twig throws "Unknown filter" (a fatal error).
+## Design tokens and assets
+- **`theme.json` owns tokens:** `settings.color.palette`, `settings.typography.{fontFamilies,fontSizes}` (fonts self-hosted via `fontFace` → `file:./assets/fonts/...`), `settings.spacing.spacingSizes`, `settings.layout.{contentSize,wideSize}`, `settings.custom` for anything else. Core default palettes/sizes and free-form custom values are switched off where they'd bypass the tokens.
+- `styles` in `theme.json` handles global element and core block styling first. SCSS is for what `theme.json` can't express: per-block styles, states, media queries, complex selectors.
+- SCSS reads tokens as `var(--wp--preset--color--<slug>)`, `var(--wp--preset--spacing--<slug>)`, `var(--wp--custom--<path>)`. Breakpoints stay SCSS variables (custom properties don't work in media queries).
+- `webpack.config.js` exports the wp-scripts default config, extended with the entries `blammo` and `editor`, merged with `...defaultConfig.entry()` (because `entry` is a function). Build with `--webpack-copy-php` (copies `render.php` into `build/blocks/<name>/`) and `--blocks-manifest` (writes `build/blocks-manifest.php`). Confirm both flags against the installed wp-scripts version; if the manifest flag is missing, register by globbing `build/blocks/*/block.json`.
+- `Blammo_Scripts_And_Styles` registers handles from `build/*.asset.php` (deps and version), with handle prefix `blammo-`.
 
-## Runtime dependencies (mu-plugins)
-Both are kingkool68 plugins without release zips. `bin/install-mu-plugins <mu-plugins dir>`:
-- clones both plugins;
-- runs `composer install` for Sprig, to vendor Twig, and verifies `sprig/vendor/twig` exists;
-- writes a `blammo-mu-loader.php` shim, because WordPress only auto-loads top-level files in `mu-plugins/`.
+### What reaches what
+| Asset | Front end | Editor canvas (iframe) | Editor UI (outer frame) |
+|---|---|---|---|
+| `theme.json` global styles and presets | yes (core) | yes (core) | no |
+| `theme.json` `fontFace` fonts | yes | yes | no |
+| Block `style` (`style-index.css`) | yes, only on pages that render the block | yes | no |
+| Block `editorStyle` | no | yes | no |
+| Block `viewScript` | yes, on demand | no | no |
+| Block `editorScript` | no | no | yes |
+| `wp_enqueue_block_style( 'core/<block>', … )` (core block overrides) | yes, on demand | yes | no |
+| `build/blammo.css` via `wp_enqueue_scripts` | yes | no | no |
+| `build/blammo.css` + `build/editor.css` via `add_editor_style()` | no | yes (core scopes it to `.editor-styles-wrapper`) | no |
+| `build/editor.js` via `enqueue_block_editor_assets` | no | no | yes |
+- Rule: content CSS reaches the canvas through `theme.json`, block `style`/`editorStyle`, `wp_enqueue_block_style()` or `add_editor_style()`. Anything enqueued on `enqueue_block_editor_assets` stays in the outer frame, so use it for JS only.
+- Avoid enqueueing theme CSS on `enqueue_block_assets`: it also loads into the outer editor frame and can restyle the admin UI.
+- Block themes get `editor-styles`, `html5`, `post-thumbnails`, `responsive-embeds` and `automatic-feed-links` from core; don't re-add them.
 
-Mu-plugins load before the theme, so the theme's Sprig filters are registered in time.
-
-| Plugin | Provides | Theme must cope with it missing |
-|---|---|---|
-| [Sprig](https://github.com/kingkool68/sprig) | `Sprig` class, Twig rendering | Yes: the `Blammo_Dependencies` early return plus a fallback template |
-| [wp-styleguide](https://github.com/kingkool68/wp-styleguide) | Routes `/styleguide/<path>/` to `<theme>/styleguide/<path>.php`; `WP_Styleguide::get_sass_colors()` | Yes: it's a dev tool, and without the plugin the styleguide simply 404s |
-
-- Styleguide pages are plain PHP files that call component `render()` methods. Every component and block gets one.
-- **`styleguide_path` guard (kept permanently, even after the upstream fix):** `styleguide_path` is a public query var that reaches `locate_template()`. A theme `request` filter:
+## Styleguide (optional wp-styleguide plugin)
+[wp-styleguide](https://github.com/kingkool68/wp-styleguide) filters `template_include` and serves `locate_template( 'styleguide/<path>.php' )` for the public query var `styleguide_path`. It replaces `template-canvas.php`, so a styleguide page is plain PHP that **prints the whole HTML document itself**.
+- It's a regular dev plugin, installed by hand on blammo.local and from a pinned commit zip in `.wp-env.json` `plugins`. No mu-plugin, no install script. Without it, `/styleguide/` 404s and the theme is unaffected.
+- `Blammo_Styleguide` provides the shell, so pages stay short:
+  - `Blammo_Styleguide::block( 'blammo/<name>', $attributes, $inner_html = '' )` returns `render_block()` output for a parsed-block array. Don't hand-build block-comment JSON from values.
+  - `Blammo_Styleguide::page( $title, $body_html )` prints the document in the same order as `template-canvas.php`:
+    1. render first: `do_blocks( '<!-- wp:template-part {"slug":"header","area":"header"} /-->' )`, the same for `footer`. Unlike `block_template_part()`, this returns a string, honours DB overrides and wraps the part in its `<header>` / `<footer>` landmark;
+    2. then print `<!DOCTYPE html>`, `<html <?php language_attributes(); ?>>`, `wp_head()`, `body_class()`, `wp_body_open()`;
+    3. a skip link and `<main id="main">` around `$body_html` (core only injects its skip link into real block templates);
+    4. the footer part, `wp_footer()`.
+  - Rendering before `wp_head()` lets on-demand block CSS print in the head instead of late in the footer.
+- Pages may also pass literal core block markup through `do_blocks()`. The colour page reads `wp_get_global_settings( array( 'color', 'palette', 'theme' ) )`.
+- Every block gets a page, `styleguide/<name>.php`, including an empty/edge case.
+- **`styleguide_path` guard (kept permanently, even after the upstream fix):** `styleguide_path` is a public query var that reaches `locate_template()`. `Blammo_Styleguide` adds a `request` filter that:
   1. removes every character outside `[a-z0-9/_-]`, which drops all dots;
   2. unsets the var if the result is empty or starts with `/`.
 
-  It needs PHPUnit coverage for `../`, `%2e%2e/` and `/etc/passwd`.
-
-## Assets
-- `webpack.config.js` exports the wp-scripts default config, extended with the theme entries:
-  - blocks are auto-discovered from `src/blocks/**/block.json` and built to `build/blocks/<name>/` (block.json is copied there);
-  - the extra entries `blammo` (front-end JS + SCSS) and `editor` are merged with `...defaultConfig.entry()`, because `entry` is a function.
-- `Blammo_Scripts_And_Styles` registers handles from `build/*.asset.php` (deps and version), with handle prefix `blammo-`.
-- Editor canvas CSS uses `add_editor_style( 'build/editor.css' )`. The canvas is an iframe, so `enqueue_block_editor_assets` is used for editor JS only.
-- Front-end block library CSS and global styles are dequeued, as in the starter. The `wp_render_layout_support_flag` and `wp_render_elements_support` filters are removed, so blocks must not declare `supports.layout` or color element supports.
+  It needs PHPUnit coverage for `../`, `%2e%2e/` and `/etc/passwd`. It loads whether or not the plugin is active.
 
 ## Not ported from the starter
+- Sprig/Twig, `$context` building, root PHP templates, `static render()` component methods (ADR 0008).
 - Gulp and `filter_cache_busting_file_src`: `*.asset.php` versions replace mtime busting.
+- Dequeuing global styles / block library CSS, and removing the layout and elements support filters.
+- `register_nav_menus()`, nav walkers, sidebars/widgets, Customizer settings: replaced by `core/navigation`, template parts and global styles.
 - jQuery dependencies.
 - ACF:
-  - `get_field()` calls become `register_post_meta()` plus editor panels;
+  - per-page switches become custom templates, or `register_post_meta()` plus an editor panel;
   - `RH_Blocks::get_acf_fields_for_block()` and the styleguide block-audit page are rewritten for `blammo/*` blocks.
 - Deferred to backlog issues: CDN, Slack, Share_Tools, Redirects, Breadcrumbs, Post_Type_Archives.
-- New in Blammo (not in the starter): `Blammo_Dependencies` and `Blammo_Abilities`.
+- New in Blammo (not in the starter): `Blammo_Blocks`, `Blammo_Styleguide`, `Blammo_Abilities`.
 
 ## Deploy
 - `deploy.yml` builds on pushes to `main` and commits the compiled theme to an orphan `build/main` branch, with dev files excluded (`.gitignore-build`). Production installs from `build/main`.
-- `src/blocks/**/*.php` and `*.twig` are **runtime files** and must ship. Exclude only the block JS and SCSS sources, never all of `src/`.
-- **The main checkout that blammo.local renders has no `build/`** until you run `npm run build` after pulling `main`.
+- **Runtime files that must ship:** `style.css`, `theme.json`, `functions.php`, `functions/`, `templates/`, `parts/`, `patterns/`, `styles/`, `assets/` and **`build/`** (block `render.php` files and `blocks-manifest.php` live there). `src/`, `styleguide/`, `tests/`, `bin/` and tool configs are dev-only.
+- A deploy doesn't touch site-editor customizations: a changed `templates/*.html` has no effect on a site where that template is customized until the customization is reset.
+- **The main checkout that blammo.local renders has no `build/`** until you run `npm run build` after pulling `main`. Without it no `blammo/*` blocks register: the front end silently renders nothing for them, and the editor shows them as unsupported.

@@ -4,6 +4,8 @@
 
 All automated tests run against **`@wordpress/env`** (Docker), locally and in CI. Tests never touch blammo.local.
 
+Blocks register from `build/`, so run `npm run build` before PHP and e2e tests (CI does this first).
+
 | Type | Location | Runner | Command |
 |---|---|---|---|
 | PHP unit (pure helpers) | `tests/phpunit/unit/` | PHPUnit | `npm run test:php` |
@@ -13,9 +15,11 @@ All automated tests run against **`@wordpress/env`** (Docker), locally and in CI
 
 ## What each PR must include
 - **New PHP class or method:** integration tests for its hook registration and its behaviour.
-- **Anything that renders:** a test that hostile input (`<script>`, `"onmouseover=`, `javascript:` URLs) comes out escaped.
-- **New block:** registration (PHP), editor insert plus front-end render (e2e), and an axe scan.
-- **New template or visible UI change:** an e2e smoke test plus an axe scan (no `serious`/`critical` violations).
+- **Anything that renders** (`render.php`, patterns, styleguide shell): a test that hostile input (`<script>`, `"onmouseover=`, `javascript:` URLs) comes out escaped. Render blocks with `render_block()` / `do_blocks()`.
+- **New block:** registration (PHP), two instances on one page render without a fatal (PHP), editor insert plus front-end render (e2e), and an axe scan.
+- **New pattern:** it's registered (`WP_Block_Patterns_Registry::get_instance()->is_registered( 'blammo/<name>' )`) and its markup parses without invalid blocks.
+- **New or changed template, part, `theme.json` styles or visible UI:** an e2e smoke test plus an axe scan (no `serious`/`critical` violations) on a page that uses it.
+- **`styleguide_path` guard:** PHPUnit for `../`, `%2e%2e/` and `/etc/passwd` (permanent).
 - **Bug fix:** a test that fails before the fix.
 
 ## Conventions

@@ -43,9 +43,9 @@ This table is the single source of reviewer routing. Launch the matching reviewe
 | Changed | Reviewers |
 |---|---|
 | Anything | `adversarial-reviewer` |
-| PHP, Twig, REST, abilities, forms, SVG, `bin/`, `.claude/hooks/`, `.claude/settings.json`, CI workflows | `security-reviewer` |
-| Twig, SCSS, JS, blocks, templates | `accessibility-reviewer` |
-| New class, dir, dependency, ADR or structural change | `architect` |
+| PHP (including `render.php`, `patterns/*.php`, `styleguide/`), REST, abilities, forms, SVG, `bin/`, `.claude/hooks/`, `.claude/settings.json`, CI workflows | `security-reviewer` |
+| `templates/`, `parts/`, `patterns/`, `theme.json`, `styles/`, `render.php`, SCSS, JS, blocks | `accessibility-reviewer` |
+| New class, dir, dependency, ADR, new `theme.json` settings section, or structural change | `architect` |
 
 Fix every **blocking** and **major** finding, commit the fixes, and re-run the reviewers that raised them. Stop after 2 rounds and list anything still open in the PR body.
 

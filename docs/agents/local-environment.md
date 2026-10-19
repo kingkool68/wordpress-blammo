@@ -19,7 +19,8 @@ There are two WordPress environments, and they serve different purposes:
   - MySQL socket: `~/Library/Application Support/Local/run/$LOCAL_SITE_ID/mysql/mysqld.sock`
   - PHP config: `~/Library/Application Support/Local/run/$LOCAL_SITE_ID/conf/php` (its `php.ini` points `mysqli.default_socket` at that socket)
 - `WP_ENVIRONMENT_TYPE` is `local`.
-- Sprig and wp-styleguide are **mu-plugins**: `wp-content/mu-plugins/{sprig,wp-styleguide}/` plus `blammo-mu-loader.php`, put there by `bin/install-mu-plugins`.
+- No mu-plugins are needed. [wp-styleguide](https://github.com/kingkool68/wp-styleguide) is an optional regular plugin (`wp-content/plugins/wp-styleguide/`), installed by hand from a reviewed commit; without it `/styleguide/` 404s.
+- Blammo is a **block theme**. Site-editor edits to templates, parts and global styles are stored in the database and override the theme files. Before judging a file change on blammo.local, check for overrides (`bin/wp-local post list --post_type=wp_template,wp_template_part,wp_global_styles`) and reset them in Site Editor → Templates / Patterns (after a `db export`).
 - The site must be **running in the Local app**, or the socket doesn't exist and WP-CLI and MCP fail.
 
 ## WP-CLI: always `bin/wp-local`
@@ -55,7 +56,8 @@ bin/wp-local db export ~/blammo-backups/blammo-$(date +%F-%H%M).sql   # before a
 - **`db export`** writes only into `~/blammo-backups/`; the wrapper rejects any other path.
 
 ## wp-env
-- `npm run env:start` runs `bin/install-mu-plugins .cache/mu-plugins`, then `wp-env start`. `.wp-env.json` maps `.cache/mu-plugins` to `wp-content/mu-plugins`.
+- `npm run env:start` runs `wp-env start`. `.wp-env.json` loads the theme from the current directory and installs wp-styleguide from a pinned commit zip (`https://github.com/kingkool68/wp-styleguide/archive/<sha>.zip`) in `plugins`.
+- Run `npm run build` first: blocks register from `build/`.
 - When several worktrees run at once, each must use unique ports:
   `WP_ENV_PORT=8890 WP_ENV_TESTS_PORT=8891 npm run env:start`
 - Stop environments you started: `npm run env:stop`.

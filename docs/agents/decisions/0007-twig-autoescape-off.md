@@ -1,6 +1,6 @@
 # 0007 — Keep Twig autoescape off (Sprig default); escape explicitly
 
-- Status: accepted (2026-10-18)
+- Status: superseded by 0008 (2026-10-18)
 
 ## Context
 Sprig configures Twig with `autoescape => false`, and the starter's templates rely on it. They pass pre-built HTML strings (`the_content`, captured hook output, SVG markup, `get_block_wrapper_attributes()`) straight into templates. Autoescape off is the main XSS risk in this theme.
