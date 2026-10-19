@@ -25,9 +25,10 @@ There are two WordPress environments, and they serve different purposes:
 
 ## WP-CLI: always `bin/wp-local`
 Bare `wp` isn't on PATH. Local's bundled wp-cli uses `#!/usr/bin/env php`, which resolves to Homebrew PHP and can't reach Local's MySQL. `bin/wp-local`:
-- reads `.env.local`, which is gitignored (copy it from `.env.local.example`). It parses `KEY=VALUE` lines and never sources the file. From a worktree, it falls back to the main checkout's `.env.local`;
+- reads `.env.local`, which is gitignored (copy it from `.env.local.example`). It parses `KEY=VALUE` lines and never sources the file. It always reads the **main checkout's** `.env.local` (via the git common dir) and ignores any copy in a worktree;
 - exports `PHPRC`, `MYSQL_HOME` and `WP_CLI_CONFIG_PATH` (Local's wp-cli `config.yaml`, which makes `wp db *` honour `MYSQL_HOME`), and puts `LOCAL_MYSQL_BIN` on `PATH` for `mysqldump`;
-- runs Local's PHP binary on Local's wp-cli with `--path` set.
+- runs Local's PHP binary on Local's wp-cli with `--path` set, from `/`, so no `wp-cli.yml` in a checkout (which could `require:` PHP) is loaded.
+- The WP-CLI command must be the **first** argument (`bin/wp-local option get siteurl`, not `bin/wp-local --user=x option get …`).
 - Guard tests: `tests/bin/test-wp-local.sh`. `WP_LOCAL_CHECK_ONLY=1` runs only the guard and exits.
 
 ```bash
@@ -52,10 +53,12 @@ bin/wp-local db export ~/blammo-backups/blammo-$(date +%F-%H%M).sql   # before a
 - **The `claude` user** gets a long random password that nobody keeps, and **no application passwords**.
 - **The adapter also exposes an HTTP transport** (`/wp-json/mcp/...`). Never expose blammo.local (Local "Live Links", LAN sharing) while the adapter is active.
 - **Approval:** `bin/wp-local` wrapper commands that write or run code (`eval`, `db query`, `db import`, `search-replace`, plugin installs) and piping JSON-RPC into `mcp-adapter serve` are **not** pre-approved; the human approves each one. The wrapper refuses these unless `WP_LOCAL_ALLOW_DESTRUCTIVE=1` is set:
-  - the subcommands `eval`, `eval-file`, `shell`, `db drop|reset|query|import|cli`, `site empty`;
+  - the commands `eval`, `eval-file`, `shell`, `package`, `cli`, `config`, `scaffold`, `search-replace`, `db drop|reset|query|import|cli|clean`, `plugin|theme install|update|delete`, `cron event run`, `site empty|delete`;
   - the WP-CLI global flags `--exec`, `--require`, `--path`, `--ssh`, `--http`, `--context`. These run arbitrary PHP or retarget the command, even after a harmless subcommand like `option get`;
   - WP-CLI aliases (`@name`), which can retarget the command at another site.
-- **`db export`** writes only into `~/blammo-backups/`, even with the override. The wrapper rejects other paths, symlinks, stdout (`-`), and any flag except `--tables`, `--exclude_tables`, `--porcelain`, `--add-drop-table` and `--quiet`, since mysqldump flags such as `--result-file` would pass straight through.
+- The guard is **defence in depth**, a denylist. The real gate is the permission prompt; other writes (`option update`, `post delete`, `user create`) pass the wrapper and rely on it.
+- Arguments mentioning `user_pass`, `user_activation_key` or `session_tokens` are always rejected, even with the override. Other options and private posts **are** readable, so don't paste command output into PRs or prompt artifacts without checking it.
+- **`db export`** writes only **new** files (mode 0600) into `~/blammo-backups/`, even with the override. The wrapper rejects relative paths, other directories, existing files, symlinks, stdout (`-`), and any flag except `--tables`, `--exclude_tables`, `--porcelain`, `--add-drop-table` and `--quiet`, since mysqldump flags such as `--result-file` would pass straight through.
 
 ## wp-env
 - `npm run env:start` runs `wp-env start`. `.wp-env.json` loads the theme from the current directory and installs wp-styleguide from a pinned commit zip (`https://github.com/kingkool68/wp-styleguide/archive/<sha>.zip`) in `plugins`. Its `config` sets `WP_DEVELOPMENT_MODE` to `'theme'`, so core re-reads `patterns/*.php` and `theme.json` on every request instead of caching them per theme `Version`. Set the same constant in blammo.local's `wp-config.php` (a human-approved setup step, see `status.md`); until then, a new pattern won't show there without a `Version` bump.
