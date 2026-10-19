@@ -2,7 +2,7 @@
 
 _Every PR updates this file. Keep it short: it's the hand-off note for the next agent._
 
-Last updated: 2026-10-18 by `feat/theme-scaffold`
+Last updated: 2026-10-19 by `feat/abilities`
 
 ## What exists
 - Agent infrastructure: `CLAUDE.md`, `docs/agents/*` (ADRs 0001–0008), `.claude/agents` (5 subagents; Opus for architect and adversarial-reviewer, Sonnet for security, accessibility and test-engineer), `.claude/skills` (ship-pr, review, new-block, wp-local), `.claude/hooks`, `.claude/settings.json`, the PR template and `.agents/prompts/`.
@@ -16,12 +16,14 @@ Last updated: 2026-10-18 by `feat/theme-scaffold`
   - `patterns/`: footer, query-loop, home-heading, search-form (attrs via `serialize_block()`), 404. All template text lives in them.
   - `functions/`: `Blammo_Blocks` (manifest registration, no fatal without `build/`; block + pattern category `blammo`), `Blammo_Scripts_And_Styles`, `Blammo_Styleguide` (`styleguide_path` guard, `document_title_parts`, `block()` / `page()`), `Blammo_SVG` (ported; icon names restricted to `[a-z0-9_-]`, reads only `.svg` files inside `assets/icons/`, decorative `aria-hidden` by default, `label` → `role="img"`), `Blammo_Staging` (ported).
   - `src/` (SCSS base: `rem()`/`em()`, `visually-hidden`, breakpoints; `blammo` + `editor` entries; empty `src/blocks/`), `assets/icons/` (6 icons), `styleguide/` (index, colors, typography, icons).
-  - Tooling: wp-scripts 36 (`--webpack-copy-php --blocks-manifest`, both verified with a probe block), ESLint flat config, Stylelint, Prettier, PHPCS (WPCS 3 + PHPCompatibilityWP, Yoda conditions banned), PHPUnit 9.6 unit suite (53 tests). `npm run test:php` runs the unit suite for now.
+  - Tooling: wp-scripts 36 (`--webpack-copy-php --blocks-manifest`, both verified with a probe block), ESLint flat config, Stylelint, Prettier, PHPCS (WPCS 3 + PHPCompatibilityWP, Yoda conditions banned), PHPUnit 9.6 unit suite. `npm run test:php` runs the unit suite for now.
+- **Abilities** (`feat/abilities`): `Blammo_Abilities` (loaded only on `local`) registers category `blammo` and `blammo/create-post` (MCP-public, off REST). Callers pick draft/pending/private/publish per call (publish/private also need `publish_posts`); the user chose this permissive status set. Unit-tested with stubs in `tests/phpunit/unit/test-blammo-abilities.php`; the `WP_Error` stub is in `tests/phpunit/stubs/`.
 - GitHub ruleset "Protect main" is active: PRs required (0 approvals), no force pushes, no deletion, no bypass actors.
 
 ## In flight / next up (in order)
 1. `chore/testing-ci`: wp-env, PHPUnit integration, Jest, Playwright + axe, GitHub Actions `ci.yml` and `deploy.yml`.
    - Integration tests owed by the scaffold: hook registration and behaviour of `Blammo_Blocks` (category, pattern category, missing-manifest early return), `Blammo_Scripts_And_Styles` (handles, `add_editor_style`, empty-JS skip), `Blammo_Styleguide::page()` / `block()` and `filter_document_title_parts()`, `Blammo_Staging`; every `blammo/*` pattern registered; e2e block validity for every template and part plus an axe scan of each template.
+   - Integration tests owed by `feat/abilities`: `blammo/create-post` registered on `wp_abilities_api_init` only on `local`; executes via `wp_get_ability()->execute()` (schema rejects unknown fields and statuses; block attributes with backslashes survive kses + insert, comparing `parse_blocks()` attributes, not bytes, because real kses re-serializes block JSON; `<script>` stripped for an admin with `unfiltered_html`; permission denied off-local and for non-admins).
    - Extend `npm run test:php` to run unit + integration.
    - Deploy ships `build/` (including `render.php` files and `blocks-manifest.php`), `theme.json`, `templates/`, `parts/`, `patterns/`, `styles/`, `assets/` and the PHP. `src/` and `styleguide/` are dev-only.
    - CI runs `npm run build` before PHPUnit and e2e.
@@ -32,13 +34,12 @@ Last updated: 2026-10-18 by `feat/theme-scaffold`
 2. Local site setup (human-approved, each step after a `bin/wp-local db export`; no PR):
    - create the `claude` administrator with a random password nobody keeps and no application passwords (the `blammo-wp` MCP server can't start without it)
    - set `WP_DEVELOPMENT_MODE` to `'theme'` in blammo.local's `wp-config.php`
-   - after `feat/theme-scaffold` merges: `npm run build` in the main checkout, then activate Blammo (export the DB first: the first page view creates a `wp_navigation` post) and publish a links-based `wp_navigation` menu (see Known gaps)
-3. `feat/abilities` (after `chore/testing-ci`, which it needs for PHPUnit): `Blammo_Abilities` + tests (safety rules in local-environment.md).
-4. GitHub issues for deferred starter classes: CDN, Slack, Share_Tools, Redirects, Breadcrumbs, Post_Type_Archives
+   - done 2026-10-19 (reported by the user): Blammo is the active theme on blammo.local. Still check: `npm run build` in the main checkout, and a links-based `wp_navigation` menu. Original step: `npm run build` in the main checkout, then activate Blammo (export the DB first: the first page view creates a `wp_navigation` post) and publish a links-based `wp_navigation` menu (see Known gaps)
+3. GitHub issues for deferred starter classes: CDN, Slack, Share_Tools, Redirects, Breadcrumbs, Post_Type_Archives
 
 ## Known gaps
 - `npm run env:*`, `npm run test:js` and `npm run test:e2e` don't exist until `chore/testing-ci`.
-- No theme abilities yet, so MCP only exposes core and plugin abilities.
+- `blammo/create-post` reaches blammo.local only after this PR merges and the main checkout is pulled (the site runs the main checkout's files). Until then MCP shows only core abilities. A running `blammo-wp` server must be restarted (`/mcp` reconnect) to pick up new abilities.
 - **Navigation fallback:** `parts/header.html` uses a ref-less `wp:navigation`. On the first front-end render, core auto-creates a `wp_navigation` post (a classic menu converted, or `<!-- wp:page-list /-->`). That **writes to the DB on a GET**, so on blammo.local export the DB before the first page view after activation. Page List inside Navigation renders `ul > ul` (axe `list`, serious). It goes away once the most recently published `wp_navigation` post contains link blocks, which was verified with axe. `chore/testing-ci` must create such a menu in e2e global setup, after any auto-created one.
 - The posts page heading is always "Latest posts" (`blammo/home-heading`), even when Settings → Reading names a posts page. Change it in the site editor, or make it a block later.
 - The scaffold was verified in a throwaway SQLite WordPress 7.1.3 (not blammo.local): every template and the styleguide render with no PHP notices, all templates and parts load in the site editor with 0 invalid blocks, axe is clean with a menu present (including paginated archives), and the `styleguide_path` traversal attempts fall back to the index. Those checks were one-off scripts; `chore/testing-ci` makes them permanent.

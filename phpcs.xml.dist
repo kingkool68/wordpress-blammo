@@ -83,6 +83,11 @@
 		<exclude-pattern>/tests/phpunit/unit/bootstrap\.php$</exclude-pattern>
 	</rule>
 
+	<!-- Unit-suite stubs of core classes keep core's names. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound">
+		<exclude-pattern>/tests/phpunit/stubs/[^/]+\.php$</exclude-pattern>
+	</rule>
+
 	<!-- Tests follow PHPUnit naming, not WordPress file naming. -->
 	<rule ref="WordPress.Files.FileName">
 		<exclude-pattern>/tests/phpunit/[^/]+/[^/]+\.php$</exclude-pattern>
