@@ -56,7 +56,7 @@ bin/wp-local db export ~/blammo-backups/blammo-$(date +%F-%H%M).sql   # before a
 - **`db export`** writes only into `~/blammo-backups/`; the wrapper rejects any other path.
 
 ## wp-env
-- `npm run env:start` runs `wp-env start`. `.wp-env.json` loads the theme from the current directory and installs wp-styleguide from a pinned commit zip (`https://github.com/kingkool68/wp-styleguide/archive/<sha>.zip`) in `plugins`.
+- `npm run env:start` runs `wp-env start`. `.wp-env.json` loads the theme from the current directory and installs wp-styleguide from a pinned commit zip (`https://github.com/kingkool68/wp-styleguide/archive/<sha>.zip`) in `plugins`. Its `config` sets `WP_DEVELOPMENT_MODE` to `'theme'`, so core re-reads `patterns/*.php` and `theme.json` on every request instead of caching them per theme `Version`. Set the same constant in blammo.local's `wp-config.php` once site changes are allowed (`feat/mcp-adapter`); until then, a new pattern won't show there without a `Version` bump.
 - Run `npm run build` first: blocks register from `build/`.
 - When several worktrees run at once, each must use unique ports:
   `WP_ENV_PORT=8890 WP_ENV_TESTS_PORT=8891 npm run env:start`

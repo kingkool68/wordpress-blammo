@@ -31,7 +31,7 @@
 
 ## Templates, parts, patterns and `render.php`
 - Templates and parts are block markup only. Build them in the site editor or by hand, then copy the markup into the file; keep it valid (no block-validation errors in the editor).
-- Exactly one `<main>` per template (a `core/group` with `"tagName":"main"`). Core inserts the skip link before it.
+- Exactly one `<main>` per template (a `core/group` with `"tagName":"main"`). Core inserts a skip link at the top of `.wp-site-blocks` that targets it.
 - No hard-coded user-facing text in `.html` files: put it in a pattern and reference it with `<!-- wp:pattern {"slug":"blammo/<name>"} /-->`.
 - Patterns escape translated strings (`esc_html_e( '…', 'blammo' )`) and theme URLs (`esc_url( get_theme_file_uri( … ) )`). They hold markup, not per-request data; that's a block's job.
 - `render.php` rules are in [blocks.md](blocks.md): escape at output, `get_block_wrapper_attributes()`, no declarations.

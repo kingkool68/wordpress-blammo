@@ -87,7 +87,7 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
           → core/post-content, core/query, ... (core render callbacks)
           → core/pattern → patterns/<name>.php
           → blammo/<name> → build/blocks/<name>/render.php ($attributes, $content, $block)
-          → skip link inserted before the first <main>
+          → skip link inserted at the top of .wp-site-blocks, targeting the first <main>
       → <html language_attributes()> … wp_head() … body_class() … wp_body_open() … template HTML … wp_footer()
 ```
 - Templates and parts are static block markup: no PHP, no translatable strings. Put strings in patterns and dynamic data in blocks.
@@ -113,7 +113,7 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
 | Block `editorScript` | no | no | yes |
 | `wp_enqueue_block_style( 'core/<block>', … )` (core block overrides) | yes, on demand | yes | no |
 | `build/blammo.css` via `wp_enqueue_scripts` | yes | no | no |
-| `build/blammo.css` + `build/editor.css` via `add_editor_style()` | no | yes (core scopes it to `.editor-styles-wrapper`) | no |
+| `build/blammo.css` + `build/editor.css` via `add_editor_style()` (called in `action_after_setup_theme`) | no | yes (core scopes it to `.editor-styles-wrapper`) | no |
 | `build/editor.js` via `enqueue_block_editor_assets` | no | no | yes |
 - Rule: content CSS reaches the canvas through `theme.json`, block `style`/`editorStyle`, `wp_enqueue_block_style()` or `add_editor_style()`. Anything enqueued on `enqueue_block_editor_assets` stays in the outer frame, so use it for JS only.
 - Avoid enqueueing theme CSS on `enqueue_block_assets`: it also loads into the outer editor frame and can restyle the admin UI.
@@ -126,7 +126,7 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
   - `Blammo_Styleguide::block( 'blammo/<name>', $attributes, $inner_html = '' )` returns `render_block()` output for a parsed-block array. Don't hand-build block-comment JSON from values.
   - `Blammo_Styleguide::page( $title, $body_html )` prints the document in the same order as `template-canvas.php`:
     1. render first: `do_blocks( '<!-- wp:template-part {"slug":"header","area":"header"} /-->' )`, the same for `footer`. Unlike `block_template_part()`, this returns a string, honours DB overrides and wraps the part in its `<header>` / `<footer>` landmark;
-    2. then print `<!DOCTYPE html>`, `<html <?php language_attributes(); ?>>`, `wp_head()`, `body_class()`, `wp_body_open()`;
+    2. then print `<!DOCTYPE html>`, `<html <?php language_attributes(); ?>>`, `<head>`, `<meta charset="<?php bloginfo( 'charset' ); ?>">`, `wp_head()`, `</head>`, `body_class()`, `wp_body_open()`. In block themes the viewport meta and `<title>` come from `wp_head` callbacks that `locate_block_template()` adds (`_block_template_viewport_meta_tag`, `_block_template_render_title_tag`), which may not have run on a styleguide request. `page()` adds them itself when `has_action()` shows they're missing, so they're never printed twice;
     3. a skip link and `<main id="main">` around `$body_html` (core only injects its skip link into real block templates);
     4. the footer part, `wp_footer()`.
   - Rendering before `wp_head()` lets on-demand block CSS print in the head instead of late in the footer.
@@ -153,5 +153,6 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
 ## Deploy
 - `deploy.yml` builds on pushes to `main` and commits the compiled theme to an orphan `build/main` branch, with dev files excluded (`.gitignore-build`). Production installs from `build/main`.
 - **Runtime files that must ship:** `style.css`, `theme.json`, `functions.php`, `functions/`, `templates/`, `parts/`, `patterns/`, `styles/`, `assets/` and **`build/`** (block `render.php` files and `blocks-manifest.php` live there). `src/`, `styleguide/`, `tests/`, `bin/` and tool configs are dev-only.
+- **`deploy.yml` stamps `style.css` `Version`** (build date + short SHA) on every `build/main` commit. Core caches parsed `patterns/*.php` in the `wp_theme_files_patterns-<hash>` site transient and only re-reads them when `Version` changes (or `wp_is_development_mode( 'theme' )`). Without the bump, new or edited patterns don't appear, and templates referencing them render nothing.
 - A deploy doesn't touch site-editor customizations: a changed `templates/*.html` has no effect on a site where that template is customized until the customization is reset.
 - **The main checkout that blammo.local renders has no `build/`** until you run `npm run build` after pulling `main`. Without it no `blammo/*` blocks register: the front end silently renders nothing for them, and the editor shows them as unsupported.
