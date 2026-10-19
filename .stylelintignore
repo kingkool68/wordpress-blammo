@@ -1,0 +1,4 @@
+.claude/worktrees/
+build/
+node_modules/
+vendor/

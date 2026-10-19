@@ -1,0 +1,31 @@
+{
+  "name": "blammo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Blammo: a full block (FSE) WordPress theme",
+  "license": "GPL-2.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kingkool68/wordpress-blammo"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "prettier": "@wordpress/prettier-config",
+  "scripts": {
+    "build": "wp-scripts build --webpack-copy-php --blocks-manifest",
+    "start": "wp-scripts start --webpack-copy-php --blocks-manifest",
+    "lint": "npm run lint:js && npm run lint:css",
+    "lint:js": "wp-scripts lint-js",
+    "lint:css": "wp-scripts lint-style",
+    "format": "wp-scripts format",
+    "test:php": "composer test:unit"
+  },
+  "dependencies": {
+    "@wordpress/dom-ready": "^4.57.0"
+  },
+  "devDependencies": {
+    "@wordpress/prettier-config": "^4.57.0",
+    "@wordpress/scripts": "^36.1.0"
+  }
+}
