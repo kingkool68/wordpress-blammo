@@ -24,6 +24,10 @@ function add_action( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
 	return add_filter( $hook, $callback, $priority, $accepted_args );
 }
 
+function __( $text, $domain = 'default' ) {
+	return $text;
+}
+
 function get_template_directory() {
 	return BLAMMO_TESTS_THEME_DIR;
 }
@@ -46,6 +50,7 @@ function sanitize_html_class( $classname, $fallback = '' ) {
 	return ( $sanitized === '' && $fallback ) ? sanitize_html_class( $fallback ) : $sanitized;
 }
 
+require_once BLAMMO_TESTS_THEME_DIR . '/functions/class-blammo-blocks.php';
 require_once BLAMMO_TESTS_THEME_DIR . '/functions/class-blammo-styleguide.php';
 require_once BLAMMO_TESTS_THEME_DIR . '/functions/class-blammo-svg.php';
 require_once BLAMMO_TESTS_THEME_DIR . '/functions/class-blammo-scripts-and-styles.php';

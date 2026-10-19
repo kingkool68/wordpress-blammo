@@ -1,27 +1,6 @@
 // Front end and editor canvas (via add_editor_style). Tokens come from theme.json:
 // read them as var(--wp--preset--*) / var(--wp--custom--*), never redefine them here.
 @use "base/functions" as *;
-@use "base/mixins" as *;
-
-// Styleguide pages print their own skip link (core only injects one into block templates).
-.skip-link.screen-reader-text {
-
-	@include visually-hidden;
-
-	&:focus {
-
-		@include visually-shown;
-		background-color: var(--wp--preset--color--base);
-		color: var(--wp--preset--color--contrast);
-		left: rem(8);
-		outline: 2px solid var(--wp--preset--color--contrast);
-		outline-offset: 2px;
-		padding: rem(12) rem(16);
-		text-decoration: underline;
-		top: rem(8);
-		z-index: 100000;
-	}
-}
 
 // Core ships no styles for paginate_links() numbers; give them a 24px+ target (WCAG 2.5.8).
 .wp-block-query-pagination-numbers .page-numbers,

@@ -21,9 +21,6 @@
     "format": "wp-scripts format",
     "test:php": "composer test:unit"
   },
-  "dependencies": {
-    "@wordpress/dom-ready": "^4.57.0"
-  },
   "devDependencies": {
     "@wordpress/prettier-config": "^4.57.0",
     "@wordpress/scripts": "^36.1.0"

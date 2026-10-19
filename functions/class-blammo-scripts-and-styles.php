@@ -51,32 +51,17 @@ class Blammo_Scripts_And_Styles {
 				);
 				wp_style_add_data( 'blammo', 'rtl', 'replace' );
 			}
-			// The entry may only import SCSS; don't make every page request an empty script.
-			$script = get_template_directory() . '/build/blammo.js';
-			if ( file_exists( $script ) && filesize( $script ) > 0 ) {
-				wp_register_script(
-					'blammo',
-					get_template_directory_uri() . '/build/blammo.js',
-					$blammo['dependencies'],
-					$blammo['version'],
-					array(
-						'in_footer' => true,
-						'strategy'  => 'defer',
-					)
-				);
-			}
 		}
-
-		$editor = static::get_asset( 'editor' );
-		if ( $editor ) {
-			wp_register_script(
-				'blammo-editor',
-				get_template_directory_uri() . '/build/editor.js',
-				$editor['dependencies'],
-				$editor['version'],
-				array( 'in_footer' => true )
-			);
-		}
+		// Entries may only import SCSS; don't make pages request an empty script.
+		static::register_script_if_built(
+			'blammo',
+			'blammo',
+			array(
+				'in_footer' => true,
+				'strategy'  => 'defer',
+			)
+		);
+		static::register_script_if_built( 'blammo-editor', 'editor', array( 'in_footer' => true ) );
 	}
 
 	/**
@@ -92,6 +77,29 @@ class Blammo_Scripts_And_Styles {
 	 */
 	public function action_enqueue_block_editor_assets() {
 		wp_enqueue_script( 'blammo-editor' );
+	}
+
+	/**
+	 * Register build/<entry>.js under a handle, if it was built and isn't empty
+	 *
+	 * @param string $handle Script handle
+	 * @param string $entry  Build entry name
+	 * @param array  $args   wp_register_script() $args (in_footer, strategy)
+	 * @return bool Whether the script was registered
+	 */
+	private static function register_script_if_built( $handle, $entry, $args = array() ) {
+		$asset  = static::get_asset( $entry );
+		$script = get_template_directory() . '/build/' . $entry . '.js';
+		if ( ! $asset || ! file_exists( $script ) || filesize( $script ) === 0 ) {
+			return false;
+		}
+		return wp_register_script(
+			$handle,
+			get_template_directory_uri() . '/build/' . $entry . '.js',
+			$asset['dependencies'],
+			$asset['version'],
+			$args
+		);
 	}
 
 	/**

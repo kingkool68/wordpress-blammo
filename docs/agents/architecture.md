@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: this describes the **target** architecture. The scaffold lands in `feat/theme-scaffold`. See `status.md`. Blammo is a full block (FSE) theme (ADR 0008).
+> Status: the scaffold landed in `feat/theme-scaffold`. Abilities, `bin/` and CI are still pending (see `status.md`). Blammo is a full block (FSE) theme (ADR 0008).
 
 ## Directory map
 ```
@@ -100,7 +100,7 @@ request → template hierarchy (page-{slug} → page-{id} → page → singular 
 - `styles` in `theme.json` handles global element and core block styling first. SCSS is for what `theme.json` can't express: per-block styles, states, media queries, complex selectors.
 - SCSS reads tokens as `var(--wp--preset--color--<slug>)`, `var(--wp--preset--spacing--<slug>)`, `var(--wp--custom--<path>)`. Breakpoints stay SCSS variables (custom properties don't work in media queries).
 - `webpack.config.js` exports the wp-scripts default config, extended with the entries `blammo` and `editor`, merged with `...defaultConfig.entry()` (because `entry` is a function). Build with `--webpack-copy-php` (copies `render.php` into `build/blocks/<name>/`) and `--blocks-manifest` (writes `build/blocks-manifest.php`). Confirm both flags against the installed wp-scripts version; if the manifest flag is missing, register by globbing `build/blocks/*/block.json`.
-- `Blammo_Scripts_And_Styles` registers handles from `build/*.asset.php` (deps and version), with handle prefix `blammo-`. The front-end `blammo` script is only registered when `build/blammo.js` is non-empty (the entry may only import SCSS), and `blammo.css` uses `blammo-rtl.css` in RTL locales.
+- `Blammo_Scripts_And_Styles` registers handles from `build/*.asset.php` (deps and version), with handle prefix `blammo-`. Scripts are only registered when `build/<entry>.js` is non-empty (an entry may only import SCSS), and `blammo.css` uses `blammo-rtl.css` in RTL locales.
 
 ### What reaches what
 | Asset | Front end | Editor canvas (iframe) | Editor UI (outer frame) |
