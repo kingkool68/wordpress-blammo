@@ -12,7 +12,7 @@
 	"attributes": {
 		"name": {
 			"type": "string",
-			"default": "world"
+			"default": ""
 		}
 	},
 	"supports": {

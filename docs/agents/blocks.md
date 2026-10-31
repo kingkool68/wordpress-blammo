@@ -25,6 +25,7 @@ There's no per-block PHP class. `Blammo_Blocks` registers every block from `buil
 - `editorStyle: "file:./index.css"` only when `editor.scss` exists; `viewScript: "file:./view.js"` only when `view.js` exists
 - Typed `attributes` with `default`s. Core drops values that fail the type/enum check and falls back to the default, so use `enum` for anything that becomes a class name or tag.
 - `supports` are allowed, including `layout`, `color`, `spacing` and `typography`. Prefer a support (which uses the `theme.json` presets) over a custom attribute for the same thing.
+- `version`: core uses it as the `ver` of the block's `style-index.css` (scripts version from `index.asset.php`, styles don't). Bump it when the block's styles change.
 - `usesContext: [ "postId", "postType" ]` when the block reads the current post, so it works inside a Query Loop.
 
 ## `render.php`
@@ -37,7 +38,7 @@ There's no per-block PHP class. `Blammo_Blocks` registers every block from `buil
  */
 
 $headline = (string) ( $attributes['headline'] ?? '' );
-if ( '' === trim( $headline ) ) {
+if ( trim( $headline ) === '' ) {
 	return; // Renders nothing.
 }
 ?>

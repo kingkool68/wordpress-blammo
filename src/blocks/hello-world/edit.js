@@ -1,13 +1,15 @@
 /**
  * WordPress dependencies
  */
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { InspectorControls, useBlockProps } from '@wordpress/block-editor';
 import { PanelBody, TextControl } from '@wordpress/components';
-import ServerSideRender from '@wordpress/server-side-render';
 
 /**
  * Edit component for blammo/hello-world.
+ *
+ * The preview mirrors render.php in JS. ServerSideRender would nest a second
+ * wrapper (with every support style applied again) inside useBlockProps().
  *
  * @param {Object}                  props               Block props.
  * @param {Object}                  props.attributes    Block attributes.
@@ -15,7 +17,8 @@ import ServerSideRender from '@wordpress/server-side-render';
  * @return {Element} Editor markup.
  */
 export default function Edit({ attributes, setAttributes }) {
-	const blockProps = useBlockProps();
+	const blockProps = useBlockProps({ className: 'hello-world-block' });
+	const name = attributes.name.trim() || __('world', 'blammo');
 
 	return (
 		<>
@@ -26,16 +29,20 @@ export default function Edit({ attributes, setAttributes }) {
 						__nextHasNoMarginBottom
 						label={__('Who to greet', 'blammo')}
 						help={__('Leave empty to greet the world.', 'blammo')}
+						placeholder={__('world', 'blammo')}
 						value={attributes.name}
-						onChange={(name) => setAttributes({ name })}
+						onChange={(value) => setAttributes({ name: value })}
 					/>
 				</PanelBody>
 			</InspectorControls>
 			<div {...blockProps}>
-				<ServerSideRender
-					block="blammo/hello-world"
-					attributes={attributes}
-				/>
+				<p className="hello-world-block__greeting">
+					{sprintf(
+						/* translators: %s: who to greet, e.g. "world". */
+						__('Hello, %s!', 'blammo'),
+						name
+					)}
+				</p>
 			</div>
 		</>
 	);

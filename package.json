@@ -27,7 +27,6 @@
     "@wordpress/components": "^43.0.0",
     "@wordpress/i18n": "^7.0.0",
     "@wordpress/prettier-config": "^4.57.0",
-    "@wordpress/scripts": "^36.1.0",
-    "@wordpress/server-side-render": "^7.0.0"
+    "@wordpress/scripts": "^36.1.0"
   }
 }

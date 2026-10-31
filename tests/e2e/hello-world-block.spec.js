@@ -18,14 +18,18 @@ test.describe('blammo/hello-world', () => {
 			attributes: { name: 'Playwright' },
 		});
 
+		// Exactly one wrapper in the editor: a nested preview would double it.
+		await expect(editor.canvas.locator('.hello-world-block')).toHaveCount(
+			1
+		);
 		await expect(
-			editor.canvas.locator('.wp-block-blammo-hello-world')
-		).toContainText('Hello, Playwright!');
+			editor.canvas.locator('.hello-world-block__greeting')
+		).toHaveText('Hello, Playwright!');
 
 		const postId = await editor.publishPost();
 		await page.goto(`/?p=${postId}`);
 
-		await expect(page.locator('.hello-world-block')).toHaveText(
+		await expect(page.locator('.hello-world-block__greeting')).toHaveText(
 			'Hello, Playwright!'
 		);
 	});

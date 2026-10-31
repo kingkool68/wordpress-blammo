@@ -55,6 +55,17 @@ class Test_Blammo_Hello_World_Block extends WP_UnitTestCase {
 		$this->assertStringContainsString( '&lt;script&gt;', $html );
 	}
 
+	public function test_wrapper_supports_reach_the_markup() {
+		$html = $this->render(
+			array(
+				'className'       => 'extra-class',
+				'backgroundColor' => 'accent',
+			)
+		);
+		$this->assertStringContainsString( 'extra-class', $html );
+		$this->assertStringContainsString( 'has-accent-background-color', $html );
+	}
+
 	public function test_two_instances_render_without_fatal() {
 		$html = do_blocks( '<!-- wp:blammo/hello-world /--><!-- wp:blammo/hello-world {"name":"again"} /-->' );
 		$this->assertStringContainsString( 'Hello, world!', $html );
