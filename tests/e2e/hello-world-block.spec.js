@@ -37,7 +37,6 @@ test.describe('blammo/hello-world', () => {
 		await page.goto(`/?p=${postId}`);
 
 		const results = await new AxeBuilder({ page })
-			.include('.hello-world-block')
 			.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
 			.analyze();
 		expect(results.violations).toEqual([]);
