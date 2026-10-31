@@ -11,7 +11,7 @@
 |---|---|
 | `block.json` | Metadata, including `"render": "file:./render.php"`. See the required fields below. |
 | `index.js` | `registerBlockType( metadata.name, { edit: Edit, save } )`. Imports `./style.scss`. `save` returns `null`, or `<InnerBlocks.Content />` when the block has inner blocks. |
-| `edit.js` | Edit component. It **must** spread `useBlockProps()` on its wrapper. It renders `InspectorControls` with labelled controls, plus a JS preview (e.g. `RichText`) or `ServerSideRender`. |
+| `edit.js` | Edit component. It **must** spread `useBlockProps()` on its wrapper. It renders `InspectorControls` with labelled controls, plus a JS preview (e.g. `RichText`) or `ServerSideRender`. Prefer a JS preview. `render.php` already outputs the block wrapper, so `ServerSideRender` nested inside a `useBlockProps()` element doubles the wrapper and every support style. |
 | `render.php` | Front-end markup. Core `require`s it on every render. Escapes every value. |
 | `style.scss` | Front-end and editor styles. wp-scripts emits them as `style-index.css`. |
 | `editor.scss` | Optional, editor-canvas-only styles (`editorStyle`). |
@@ -24,6 +24,7 @@ There's no per-block PHP class. `Blammo_Blocks` registers every block from `buil
 - `editorScript: "file:./index.js"`, `style: "file:./style-index.css"`, `render: "file:./render.php"`
 - `editorStyle: "file:./index.css"` only when `editor.scss` exists; `viewScript: "file:./view.js"` only when `view.js` exists
 - Typed `attributes` with `default`s. Core drops values that fail the type/enum check and falls back to the default, so use `enum` for anything that becomes a class name or tag.
+- User-visible default text goes in a translated fallback in `render.php` (and the JS preview), not in a `default`: `block.json` string defaults are never translated.
 - `supports` are allowed, including `layout`, `color`, `spacing` and `typography`. Prefer a support (which uses the `theme.json` presets) over a custom attribute for the same thing.
 - `version`: core uses it as the `ver` of the block's `style-index.css` (scripts version from `index.asset.php`, styles don't). Bump it when the block's styles change.
 - `usesContext: [ "postId", "postType" ]` when the block reads the current post, so it works inside a Query Loop.

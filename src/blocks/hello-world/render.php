@@ -7,7 +7,8 @@
  * @var WP_Block $block      Block instance.
  */
 
-$name = trim( (string) ( $attributes['name'] ?? '' ) );
+// Unicode-aware trim, so it matches String.prototype.trim() in edit.js (PHP's trim() keeps e.g. U+00A0).
+$name = (string) preg_replace( '/^[\s\x{FEFF}]+|[\s\x{FEFF}]+$/u', '', (string) ( $attributes['name'] ?? '' ) );
 if ( $name === '' ) {
 	$name = __( 'world', 'blammo' );
 }

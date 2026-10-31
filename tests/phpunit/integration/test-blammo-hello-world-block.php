@@ -42,6 +42,21 @@ class Test_Blammo_Hello_World_Block extends WP_UnitTestCase {
 	public function test_empty_and_whitespace_name_fall_back_to_world() {
 		$this->assertStringContainsString( 'Hello, world!', $this->render( array( 'name' => '' ) ) );
 		$this->assertStringContainsString( 'Hello, world!', $this->render( array( 'name' => "  \n " ) ) );
+		$this->assertStringContainsString( 'Hello, world!', $this->render( array( 'name' => "\u{00A0}\u{3000}\u{FEFF}" ) ) );
+	}
+
+	public function test_default_name_is_empty_and_fallback_is_translated() {
+		$type = WP_Block_Type_Registry::get_instance()->get_registered( 'blammo/hello-world' );
+		$this->assertSame( '', $type->attributes['name']['default'] );
+
+		$filter = static function ( $translation, $text, $domain ) {
+			return ( $domain === 'blammo' && $text === 'world' ) ? 'Welt' : $translation;
+		};
+		add_filter( 'gettext', $filter, 10, 3 );
+		$html = $this->render();
+		remove_filter( 'gettext', $filter, 10 );
+
+		$this->assertStringContainsString( 'Hello, Welt!', $html );
 	}
 
 	public function test_invalid_attribute_type_falls_back_to_default() {
