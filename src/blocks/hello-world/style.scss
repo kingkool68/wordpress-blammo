@@ -1,0 +1,12 @@
+// The root carries the default size so the typography support's
+// font-size classes on the wrapper can override it.
+.hello-world-block {
+	padding-block: var(--wp--preset--spacing--30);
+	font-size: var(--wp--preset--font-size--large);
+}
+
+.hello-world-block__greeting {
+	margin: 0;
+	font-size: inherit;
+	font-weight: 700;
+}

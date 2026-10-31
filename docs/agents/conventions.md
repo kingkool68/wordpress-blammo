@@ -16,7 +16,7 @@
 | Constants | `BLAMMO_<NAME>` | `BLAMMO_VERSION` |
 | WP-CLI command | `wp blammo <subcommand>` | |
 | Ability names | `blammo/<verb>-<noun>` | `blammo/get-theme-status` |
-| CSS classes | BEM-ish: `block`, `block__element`, `block--modifier` | `text-image-block--align-left` |
+| CSS classes | BEM-ish: `block`, `block__element`, `block--modifier` | `text-image-block--align-left` (enforced by `.stylelintrc.json`) |
 
 ## PHP
 - Follow WordPress Coding Standards 3 through `phpcs.xml.dist`, with these exceptions:
@@ -49,6 +49,7 @@
 - Use ES modules and `@wordpress/dom-ready` for front-end init. Use `@wordpress/*` packages in the editor.
 - Lint with `wp-scripts lint-js` and format with `@wordpress/prettier-config`.
 - Don't use jQuery.
+- Add each `@wordpress/*` package a block imports to `devDependencies`. It's for lint resolution only (`import/no-unresolved`, `import/no-extraneous-dependencies`): wp-scripts externalizes it, and the runtime version is core's.
 
 ## Git and PRs
 - Branches are `<type>/<slug>`, where type is `feat|fix|chore|docs|refactor|test`.
